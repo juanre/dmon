@@ -208,40 +208,6 @@ class TupleMoney(BaseMoney):
         self.my_output_currency = self.to_currency_enum(currency)
 
 
-class Eur(BaseMoney):
-    default_currency = Currency.EUR
-    output_currency = Currency.EUR
-
-
-class Gbp(BaseMoney):
-    default_currency = Currency.GBP
-    output_currency = Currency.GBP
-
-
-class Usd(BaseMoney):
-    default_currency = Currency.USD
-    output_currency = Currency.USD
-
-
-class Aud(BaseMoney):
-    default_currency = Currency.AUD
-    output_currency = Currency.AUD
-
-
-class Cad(BaseMoney):
-    default_currency = Currency.CAD
-    output_currency = Currency.CAD
-
-
-class Mxn(BaseMoney):
-    default_currency = Currency.MXN
-    output_currency = Currency.MXN
-
-
-class Inr(BaseMoney):
-    default_currency = Currency.INR
-    output_currency = Currency.INR
-
 
 def _try():
     M = Money()
