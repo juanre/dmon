@@ -9,7 +9,7 @@ def test_money():
 
     assert M(23) == Eur(23)
     assert M(23).in_currency('eur') == 2300
-    assert int(M(40).in_currency('usd')) == 4020
+    assert M(40).in_currency('usd') == Dec('4020')
 
     assert Eur(40).to_currency_enum('usd') == Currency.USD
 
