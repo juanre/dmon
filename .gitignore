@@ -1,0 +1,16 @@
+gsk/commit.py
+gsk/prevcommit.py
+*~
+*.xfasl
+.DS_Store
+*.pyc
+adios
+hola
+*.bak
+*.egg-info
+build
+dist
+tmp
+out.png
+*_flymake.py
+

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+
+[project]
+name = "money"
+version = "0.0.1"
+description = "Compute with monetary values in the currencies supported by https://www.exchangerate-api.com."
+readme = "README.md"
+authors = [
+    { name = "juanre" }
+]
+requires-python = ">=3.9"
+
+dependencies = [
+    "requests >= 2.26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jedi >= 0.18.1",
+    "pylint >= 2.13.9",
+    "pytest >= 7.0.0",
+    "yapf >= 0.32.0"
+]
+
+[project.scripts]
+money = "money:main"
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules --ignore=setup.py --ignore=build --ignore=doc --ignore=flymake"
+pythonpath = [
+  "."
+]
