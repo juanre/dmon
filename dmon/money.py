@@ -10,7 +10,7 @@ from decimal import Decimal as D
 from enum import Enum
 import requests
 
-import money
+import dmon
 
 
 Currency = None
@@ -33,7 +33,7 @@ def today():
 def build_currency_symbols():
     global Currency
     global CurrencySymbols
-    symbols_txt = importlib.resources.read_text(money, 'symbols.json')
+    symbols_txt = importlib.resources.read_text(dmon, 'symbols.json')
     #with open(os.path.join(resdir(), 'symbols.json'), encoding='utf-8') as fin:
     symbols = json.loads(symbols_txt)
     Currency = Enum('Currency', ((name.upper(), name) for name in symbols.keys()))
