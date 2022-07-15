@@ -2,7 +2,7 @@
 requires = ["setuptools", "wheel"]
 
 [project]
-name = "money"
+name = "dmon"
 version = "0.0.1"
 description = "Compute with monetary values in the currencies supported by https://www.exchangerate-api.com."
 readme = "README.md"
@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.scripts]
-money = "money:main"
+money = "dmon:main"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --ignore=setup.py --ignore=build --ignore=doc --ignore=flymake"
