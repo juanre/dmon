@@ -1,6 +1,26 @@
 # money
 
+```python
+from decimal import Decimal as Dec
+from money.money import Money, Currency
 
+Eur = Money(Currency.EUR)
+Gbp = Money('£')
+OldUsd = Money('$', on='2022-01-07')
+
+assert Eur(40).cents() == Dec('4000')
+assert Eur(40).to('$').cents() == Dec('4020.100502512562832012897042')
+assert Eur(20) < Gbp(20)
+assert Eur(20) / Gbp(20) == Dec('0.8468856398958541665600293862')
+assert Eur(20) / 2 == Eur(10)
+assert str(1.2 * Eur(20)) == '€24.00'
+assert str(1.2 * Eur(20).to('C$')) == 'C$31.53'
+
+paid = Gbp(10)
+amount, currency, on_date = paid.as_tuple()
+assert (amount, currency, on_date) == (Dec('1000'), 'gbp', '2022-07-15')
+assert Gbp((amount, currency, on_date)) == paid
+```
 ## Installation
 
 ## Virtual environment
