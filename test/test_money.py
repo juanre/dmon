@@ -7,8 +7,8 @@ from dmon.money import Money, Currency
 
 def test_money():
     on_date = '2022-07-14'
-    Eur = Money(Currency.EUR, on=on_date)
-    Aud = Money(Currency.AUD, on=on_date)
+    Eur = Money(Currency.EUR, today=on_date)
+    Aud = Money(Currency.AUD, today=on_date)
 
     assert Eur(23).in_currency('eur') == 2300
     assert Eur(40).in_currency('usd') == Dec('4020.100502512562832012897042')
@@ -31,18 +31,22 @@ def test_money():
     assert Aud((cents, cur, on)) == Eur(20)
 
     old_date = '2022-01-07'
-    OldEur = Money('€', on=old_date)
+    OldEur = Money('€', today=old_date)
     old_cents, old_cur, old_on = OldEur(20).as_tuple()
     assert old_on == old_date
-    assert Eur((old_cents, old_cur, old_on)).to('$') != Eur(20).to('$')
 
-    # The date in the quantity takes precedence over the default date on the class.
-    assert OldEur(20, on=on_date).to('$') == Eur(20).to('$')
+    # The date in the class takes precedence over the date in the instance.
+    assert Eur((old_cents, old_cur, old_on)).to('$') == Eur(20).to('$')
+    assert OldEur(20, on=on_date).to('$') != Eur(20).to('$')
+
+    AnyTimeEur = Money('€')
+    assert AnyTimeEur(OldEur(20).as_tuple()).to('$') != \
+        AnyTimeEur(Eur(20).as_tuple()).to('$')
 
     assert type(Eur(10)).__name__ == 'Money_' + on_date
     assert type(OldEur(10)).__name__ == 'Money_' + old_date
 
-    PD = Money('£', '$', on=on_date)
+    PD = Money('£', '$', today=on_date)
     assert str(PD(20)) == '$23.79'
     assert str(PD(20, '£')) == '$23.79'
     assert str(PD(20, 'gbp')) == '$23.79'

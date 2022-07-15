@@ -26,7 +26,7 @@ def rounded(v):
     return int(round(v))
 
 
-def today():
+def _today():
     return datetime.today().strftime('%Y-%m-%d')
 
 
@@ -47,7 +47,7 @@ def get_rates(on_date):
     if os.path.exists(fname):
         with open(fname, encoding='utf-8') as fin:
             data = json.load(fin)
-    elif on_date == today():
+    elif on_date == _today():
         api_environment = 'MONEY_RATES_API_KEY'
         api_key = os.environ.get(api_environment, '')
         if not api_key:
@@ -70,7 +70,7 @@ def get_rates(on_date):
 
 
 class BaseMoney():
-    on_date_default = today()
+    on_date_override = None
     default_currency = Currency.EUR
     output_currency = None
     rates = None
@@ -88,7 +88,7 @@ class BaseMoney():
             amount, currency, on = amount
             amount_is_cents = True
 
-        self.on_date = on or self.on_date_default
+        self.on_date = self.on_date_override if self.on_date_override else (on or _today())
 
         if currency is None:
             currency = self.default_currency
@@ -199,11 +199,14 @@ class BaseMoney():
 
 
 class Money(type):
-    def __new__(cls, currency=Currency.EUR, output=None, on=None, name=''):
+    def __new__(cls, currency=Currency.EUR, output=None, today=None, name=''):
+        if today is True:
+            today = _today()
+
         if not name:
-            name = 'Money_' + (on if on else 'latest')
+            name = 'Money_' + (today if today else 'latest')
         x = super().__new__(cls, name, (BaseMoney,), {})
-        x.on_date_default = on or today()
+        x.on_date_override = today
         x.default_currency = currency
         x.output_currency = output
         return x
