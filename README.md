@@ -1,4 +1,4 @@
-# dmon.Money
+# dmon.money.Money
 
 Manipulate monetary values, each consisting in an amount (stored as a Decimal in cents), a currency, and a date.
 
@@ -38,7 +38,7 @@ So if you want to know the impact of changes in exchange rates you can do your c
 
 **Important** All computations are done with cents stored as Decimal, but comparisons are are rounded to the second decimal.  So, for example,
 
-```
+```python
 paid = Gbp(10)
 paid_usd = paid.to('$')
 paid_usd.cents()  # Decimal('1182.452406290646791283108172')
