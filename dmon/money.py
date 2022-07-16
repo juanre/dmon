@@ -70,7 +70,7 @@ def get_rates(on_date):
 
 
 class BaseMoney():
-    on_date_override = None
+    on_date = _today()
     default_currency = Currency.EUR
     output_currency = None
     rates = None
@@ -82,28 +82,29 @@ class BaseMoney():
     reverse_symbols['$'] = Currency.USD
     reverse_symbols['£'] = Currency.GBP
 
-    def __init__(self, amount, currency=None, on=None, my_output_currency=None,
-                 amount_is_cents=False):
+    def __init__(self, amount, currency=None, amount_is_cents=False):
         if isinstance(amount, tuple):
-            amount, currency, on = amount
+            amount, currency = amount
             amount_is_cents = True
-
-        self.on_date = self.on_date_override if self.on_date_override else (on or _today())
 
         if currency is None:
             currency = self.default_currency
 
         self._amount = D(amount) if amount_is_cents else Cents * D(amount)
         self.currency = self.to_currency_enum(currency)
-        self.my_output_currency = (self.to_currency_enum(my_output_currency)
-                                   if my_output_currency
-                                   else None)
+
+    @classmethod
+    def to_date(cls, dt):
+        cls.on_date = dt
+
+    def to_today(self):
+        self.on_date = _today()
 
     def to_currency_enum(self, currency):
         return Currency(self.reverse_symbols.get(currency, currency))
 
     def as_tuple(self):
-        return self._amount, self.currency.value, self.on_date
+        return self._amount, self.currency.value
 
     def in_currency(self, currency):
         if currency == self.currency:
@@ -126,15 +127,25 @@ class BaseMoney():
     def to(self, currency, rounding=False):
         currency = self.to_currency_enum(currency)
         _amount = self.in_currency(currency)
-        return self.__class__(round(_amount) if rounding else _amount, currency,
-                              my_output_currency=currency, amount_is_cents=True)
+        return self.__class__(round(_amount) if rounding else _amount,
+                              currency,
+                              amount_is_cents=True)
+
+    def normalized_amounts(self, o):
+        """Returns the two values with which to operate, and their
+        common currency.  If the two currencies are the same we do not
+        need to do any conversions; if they are not, they will both be
+        converted to the default currency.
+        """
+        if self.currency == o.currency:
+            return self.cents(), o.cents(), self.currency
+        return (self.in_currency(self.default_currency),
+                o.in_currency(self.default_currency),
+                self.default_currency)
 
     def __str__(self):
-        currency = self.my_output_currency or self.output_currency or self.currency
-
         # output_currency may still be None
-        currency = self.to_currency_enum(currency)
-
+        currency = self.to_currency_enum(self.output_currency or self.currency)
         # pylint: disable=bad-string-format-type
         return '%s%.2f' % (CurrencySymbols[currency], self.amount(currency, rounding=True))
 
@@ -148,33 +159,29 @@ class BaseMoney():
         # This enables expressions like sum(Eur(i) for i in range(10))
         if not isinstance(o, BaseMoney):
             o = self.__class__(D(o), self.currency)
-        return self.__class__((self._amount + o.in_currency(self.currency)) / Cents,
-                              self.currency)
+
+        v1, v2, out_currency = self.normalized_amounts(o)
+        return self.__class__(v1 + v2, out_currency, amount_is_cents=True)
 
     def __radd__(self, o):
         return self + o
 
     def __sub__(self, o):
-        return self.__class__((self._amount - o.in_currency(self.currency)) / Cents,
-                              self.currency)
+        v1, v2, out_currency = self.normalized_amounts(o)
+        return self.__class__(v1 - v2, out_currency, amount_is_cents=True)
 
     def __rsub__(self, o):
         return -self + o
 
     def __mul__(self, n):
-        return self.__class__(self._amount * D(n) / Cents, self.currency)
+        return self.__class__(self._amount * D(n), self.currency, amount_is_cents=True)
 
     __rmul__ = __mul__
 
     def __truediv__(self, n):
         if isinstance(n, BaseMoney):
-            return self._amount / n.to(self.currency)._amount
-        return self.__class__(self._amount / D(n) / Cents, self.currency)
-
-    def __rtruediv__(self, n):
-        if isinstance(n, BaseMoney):
-            return n.to(self.currency)._amount / self._amount
-        return self.__class__(D(n) / self._amount * Cents, self.currency)
+            return self._amount / n.to(self.currency).cents()
+        return self.__class__(self._amount / D(n), self.currency, amount_is_cents=True)
 
     def __ne__(self, o):
         return rounded(self._amount) != rounded(o.in_currency(self.currency))
@@ -196,14 +203,11 @@ class BaseMoney():
 
 
 class Money(type):
-    def __new__(cls, currency=Currency.EUR, output=None, today=None, name=''):
-        if today is True:
-            today = _today()
-
+    def __new__(cls, currency=Currency.EUR, output=None, on=None, name=''):
         if not name:
-            name = 'Money_' + (today if today else 'latest')
+            name = 'Money_' + (on if on else 'latest')
         x = super().__new__(cls, name, (BaseMoney,), {})
-        x.on_date_override = today
+        x.on_date = on or _today()
         x.default_currency = currency
         x.output_currency = output
         return x

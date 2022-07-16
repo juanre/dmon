@@ -1,8 +1,8 @@
 # dmon.money.Money
 
-Manipulate monetary values, each consisting in an amount (stored as a Decimal in cents), a currency, and a date.
+Manipulate monetary values, each consisting in an amount (stored as a Decimal in cents) and a currency, with control on the date on which currency conversions take place.
 
-It differs from the [money](https://pypi.org/project/money/) package in that it treats the date as a first class element: the value of a dollar changes with time.
+It differs from the [money](https://pypi.org/project/money/) package in that it treats the date as a first class element.
 
 It downloads and saves today's conversion rates from https://www.exchangerate-api.com/ using your API key (see below).  Currency exchanges will only work for today, or for dates for which a conversion rate json file is found.
 
@@ -12,45 +12,62 @@ It downloads and saves today's conversion rates from https://www.exchangerate-ap
 from decimal import Decimal as Dec
 from dmon.money import Money, Currency
 
-Eur = Money(Currency.EUR)                 # Compute in eur
-Gbp = Money('£')                          # Compute in gbp
-TodayGbp = Money('gbp', today=True)       # Compute in today's gbp
-OldUsd = Money('$', today='2022-01-07')   # Compute in 2022-01-07 usd
+# Compute in eur with today's conversion rates (default)
+Eur = Money(Currency.EUR)
+
+# Compute in gbp with today's conversion rates
+Gbp = Money('£')
 
 assert Eur(40).cents() == Dec('4000')
 assert Eur(40).to('$').cents() == Dec('4020.100502512562832012897042')
 assert Eur(20) < Gbp(20)
-assert Eur(20) / Gbp(20) == Dec('0.8468856398958541665600293862')
+assert Eur(20, '£') == Eur(20, 'gbp') == Eur(20, Currency.GBP) == Gbp(20)
+
+# We can define the default date for conversions when creating the class
+OldUsd = Money('$', on='2022-01-07')
+assert str(OldUsd(20, 'eur').to('$')) == '$22.61'
+assert str(Eur(20, 'eur').to('$')) == '$20.13'  # With today's rates
+
+# Computations are done in the default currency of the class Eur
+assert str(Eur(20, 'aud') + Eur(20, 'gbp')) == '€37.00'
+
+# If we move to another date the values differ
+Eur.to_date('2022-01-07')
+assert str(Eur(20, 'aud') + Eur(20, 'gbp')) == '€36.65'
+
+# If we use two classes with different dates the first one wins
+assert str(Eur(20, 'aud') + Gbp(20, 'gbp')) == '€36.23'
+assert str(Gbp(20) + Eur(20, 'aud')) == '£30.61'
+
+assert Eur(20) / Gbp(20) == Dec('0.8500402576489532855181620688')
 assert Eur(20) / 2 == Eur(10)
 assert str(1.2 * Eur(20)) == '€24.00'
 assert str(1.2 * Eur(20).to(Currency.CAD)) == 'C$31.53'
 
 paid = Gbp(10)
-amount, currency, on_date = paid.as_tuple()
-assert (amount, currency, on_date) == (Dec('1000'), 'gbp', '2022-07-15')
-assert Gbp((amount, currency, on_date)) == paid
+amount, currency = paid.as_tuple()
+assert (amount, currency) == (Dec('1000'), 'gbp')
+assert Gbp((amount, currency)) == paid
 ```
 
 ## Usage
 
-The metaclass `Money` returns a class that knows its currency and the date for which currency transformations should be done.  When the `today` argument is `None` (default) the date of each instance is respected.  If it is `True` the conversions are done using today's exchange rate; if it is a date string, like `'2021-10-29'`, it will do the conversions with the date's exchange rate (assuing that it can find the json file with the rates, otherwise it will fail).
-
-So if you want to know the impact of changes in exchange rates you can do your computations with two money classes, one with `today=None` and one with `today=True`, and compare the resulta.
+The metaclass `Money` returns a class that knows its currency and the date for which currency transformations should be done.  When the `on` argument is `None` (default) the date is set to today's.  If it is a date string, like `'2021-10-29'`, it will do the conversions with the date's exchange rate (assuming that it can find the json file with the rates, otherwise it will fail).
 
 **Important** All computations are done with cents stored as Decimal, but comparisons are are rounded to the second decimal.  So, for example,
 
 ```python
 paid = Gbp(10)
 paid_usd = paid.to('$')
-paid_usd.cents()  # Decimal('1182.452406290646791283108172')
-str(paid_usd)     # '$11.82'
+paid_usd.cents()  # Decimal('1183.992422448496305219877141')
+str(paid_usd)     # '$11.84'
 
-Usd = Money('$')
-
-# If you initialize with a string instead of a float it will be an exact Decimal.
-native_usd = Usd('11.82')
-native_usd.cents()  # Decimal('1182.00')
+# If we initialize with a string instead of a float it will be an exact Decimal.
+native_usd = Gbp('11.84', 'usd')
+native_usd.cents()  # Decimal('1184.00')
 assert native_usd == paid_usd
+assert native_usd.cents() != paid_usd.cents()
+native_usd.cents() - paid_usd.cents()  # Decimal('0.007577551503694780122859')
 ```
 
 ## Environment variables
