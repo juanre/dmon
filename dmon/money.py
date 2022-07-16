@@ -82,8 +82,8 @@ class BaseMoney():
     reverse_symbols['$'] = Currency.USD
     reverse_symbols['£'] = Currency.GBP
 
-    def __init__(self, amount, currency=None, my_output_currency=None, amount_is_cents=False,
-                 on=None):
+    def __init__(self, amount, currency=None, on=None, my_output_currency=None,
+                 amount_is_cents=False):
         if isinstance(amount, tuple):
             amount, currency, on = amount
             amount_is_cents = True
@@ -145,8 +145,8 @@ class BaseMoney():
         return self.__class__(-self._amount / Cents, self.currency)
 
     def __add__(self, o):
+        # This enables expressions like sum(Eur(i) for i in range(10))
         if not isinstance(o, BaseMoney):
-            # Assume it's a number
             o = self.__class__(D(o), self.currency)
         return self.__class__((self._amount + o.in_currency(self.currency)) / Cents,
                               self.currency)
@@ -155,9 +155,6 @@ class BaseMoney():
         return self + o
 
     def __sub__(self, o):
-        if not isinstance(o, BaseMoney):
-            # Assume it's a number
-            o = self.__class__(D(o), self.currency)
         return self.__class__((self._amount - o.in_currency(self.currency)) / Cents,
                               self.currency)
 

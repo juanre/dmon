@@ -12,9 +12,10 @@ It downloads and saves today's conversion rates from https://www.exchangerate-ap
 from decimal import Decimal as Dec
 from dmon.money import Money, Currency
 
-Eur = Money(Currency.EUR)
-Gbp = Money('£')
-OldUsd = Money('$', today='2022-01-07')
+Eur = Money(Currency.EUR)                 # Compute in eur
+Gbp = Money('£')                          # Compute in gbp
+TodayGbp = Money('gbp', today=True)       # Compute in today's gbp
+OldUsd = Money('$', today='2022-01-07')   # Compute in 2022-01-07 usd
 
 assert Eur(40).cents() == Dec('4000')
 assert Eur(40).to('$').cents() == Dec('4020.100502512562832012897042')
