@@ -2,17 +2,23 @@
 requires = ["setuptools", "wheel"]
 
 [project]
-name = "dmon"
+name = "dated-money"
 version = "0.0.1"
 description = "Compute with monetary values in the currencies supported by https://www.exchangerate-api.com."
 readme = "README.md"
 authors = [
-    { name = "juanre" }
+    { name = "Juan Reyero", email="juan@juanreyero.com" }
 ]
-requires-python = ">=3.9"
-
+requires-python = ">=3.8"
+license = { file="LICENSE" }
 dependencies = [
     "requests >= 2.26.0",
+    "python-dateutil >= 2.8.2"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
 ]
 
 [project.optional-dependencies]
@@ -24,10 +30,13 @@ dev = [
 ]
 
 [project.scripts]
-money = "dmon:main"
+dmon = "dmon:main"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --ignore=setup.py --ignore=build --ignore=doc --ignore=flymake"
 pythonpath = [
   "."
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/juanre/dmon"

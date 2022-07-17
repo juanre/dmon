@@ -4,10 +4,13 @@
 
 import os
 import json
+import time
 import importlib.resources
 from datetime import datetime
 from decimal import Decimal as D
 from enum import Enum
+from dateutil.relativedelta import relativedelta
+from dateutil import parser as date_parser
 import requests
 
 import dmon
@@ -47,26 +50,38 @@ def get_rates(on_date):
     if os.path.exists(fname):
         with open(fname, encoding='utf-8') as fin:
             data = json.load(fin)
-    elif on_date == _today():
+    else:
         api_environment = 'MONEY_RATES_API_KEY'
         api_key = os.environ.get(api_environment, '')
         if not api_key:
             raise RuntimeError('Need an api key for https://www.exchangerate-api.com '
                                f'in the environment variable {api_environment}')
 
-        # With their paid plans this could be
-        # https://v6.exchangerate-api.com/v6/YOUR-API-KEY/history/USD/YEAR/MONTH/DAY
-        url = (f'https://v6.exchangerate-api.com/v6/{api_key}/latest/USD')
+        url = f'https://v6.exchangerate-api.com/v6/{api_key}/latest/USD'
+        if on_date != _today():
+            # Requires a paid plan
+            # https://v6.exchangerate-api.com/v6/YOUR-API-KEY/history/USD/YEAR/MONTH/DAY
+            url = (f'https://v6.exchangerate-api.com/v6/{api_key}/history/USD/' +
+                   on_date.replace('-', '/'))
+
         response = requests.get(url)
         data = response.json()
         with open(fname, 'w', encoding='utf-8') as fout:
             fout.write(json.dumps(data))
-    else:
-        raise RuntimeError('No rates for ' + on_date)
 
     currencies = set(item.value.upper() for item in Currency)
     return {Currency(c.lower()): r for c, r in data['conversion_rates'].items()
             if c in currencies}
+
+
+def build_rates_cache(from_date, to_date):
+    print(f'Downloading rates from {from_date} to {to_date}')
+    dt = date_parser.parse(from_date).date()
+    to_dt = date_parser.parse(to_date).date()
+    while dt <= to_dt:
+        get_rates(str(dt))
+        time.sleep(0.5)
+        dt = (dt + relativedelta(days=1))
 
 
 class BaseMoney():
@@ -214,3 +229,20 @@ class Money(type):
 
     def __init__(cls, *_, **__):
         super().__init__(cls, (BaseMoney,), {})
+
+
+def add_args(parser):
+    parser.add_argument('--rates-cache',
+                        help=('Download the conversion rates.  It has the form of a date, '
+                              'like 2022-04-34, or two.  If only one download until today, '
+                              'otherwise from the first until the second, included.'),
+                        type=str,
+                        nargs='+',
+                        required=False)
+
+
+def main(args):
+    if args.rates_cache:
+        from_dt = args.rates_cache[0]
+        to_dt = _today() if len(args.rates_cache) == 1 else args.rates_cache[1]
+        build_rates_cache(from_dt, to_dt)

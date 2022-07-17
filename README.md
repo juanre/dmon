@@ -1,10 +1,10 @@
-# dmon.money.Money
+# dated-money — dmon.money.Money
 
 Manipulate monetary values, each consisting in an amount (stored as a Decimal in cents) and a currency, with control on the date on which currency conversions take place.
 
 It differs from the [money](https://pypi.org/project/money/) package in that it treats the date as a first class element.
 
-It downloads and saves today's conversion rates from https://www.exchangerate-api.com/ using your API key (see below).  Currency exchanges will only work for today, or for dates for which a conversion rate json file is found.
+It downloads and saves today's conversion rates from https://www.exchangerate-api.com/ using your API key (see below).  If your account is free currency exchanges will only work for today, or for dates for which a conversion rate json file is found.  If your account is paid all dates will work.
 
 ## Examples
 
@@ -49,6 +49,10 @@ amount, currency = paid.as_tuple()
 assert (amount, currency) == (Dec('1000'), 'gbp')
 assert Gbp((amount, currency)) == paid
 ```
+
+## Installation
+
+: pip install dated-money
 
 ## Usage
 
