@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel"]
 
 [project]
 name = "dated-money"
-version = "0.0.1"
+version = "0.0.4"
 description = "Compute with monetary values in the currencies supported by https://www.exchangerate-api.com."
 readme = "README.md"
 authors = [
