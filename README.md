@@ -52,7 +52,7 @@ assert Gbp((amount, currency)) == paid
 
 ## Installation
 
-: pip install dated-money
+`pip install dated-money`
 
 ## Usage
 
