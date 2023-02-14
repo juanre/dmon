@@ -5,6 +5,8 @@
 import os
 import json
 import time
+import sqlite3
+
 import importlib.resources
 from datetime import datetime
 from decimal import Decimal as D
@@ -121,7 +123,8 @@ class BaseMoney():
     def as_tuple(self):
         return self._amount, self.currency.value
 
-    def in_currency(self, currency):
+    def cents(self, currency=None):
+        currency = self.to_currency_enum(currency or self.currency)
         if currency == self.currency:
             return self._amount
 
@@ -132,16 +135,12 @@ class BaseMoney():
                 D(self.rates[self.currency]))
 
     def amount(self, currency=None, rounding=False):
-        currency = self.to_currency_enum(currency or self.currency)
-        val = self._amount if currency == self.currency else self.in_currency(currency)
+        val = self.cents(currency)
         return (D(round(val)) if rounding else val) / Cents
-
-    def cents(self):
-        return self._amount
 
     def to(self, currency, rounding=False):
         currency = self.to_currency_enum(currency)
-        _amount = self.in_currency(currency)
+        _amount = self.cents(currency)
         return self.__class__(round(_amount) if rounding else _amount,
                               currency,
                               amount_is_cents=True)
@@ -154,8 +153,8 @@ class BaseMoney():
         """
         if self.currency == o.currency:
             return self.cents(), o.cents(), self.currency
-        return (self.in_currency(self.default_currency),
-                o.in_currency(self.default_currency),
+        return (self.cents(self.default_currency),
+                o.cents(self.default_currency),
                 self.default_currency)
 
     def __str__(self):
@@ -199,22 +198,35 @@ class BaseMoney():
         return self.__class__(self._amount / D(n), self.currency, amount_is_cents=True)
 
     def __ne__(self, o):
-        return rounded(self._amount) != rounded(o.in_currency(self.currency))
+        return rounded(self._amount) != rounded(o.cents(self.currency))
 
     def __eq__(self, o):
-        return rounded(self._amount) == rounded(o.in_currency(self.currency))
+        return rounded(self._amount) == rounded(o.cents(self.currency))
 
     def __gt__(self, o):
-        return rounded(self._amount) > rounded(o.in_currency(self.currency))
+        return rounded(self._amount) > rounded(o.cents(self.currency))
 
     def __ge__(self, o):
-        return rounded(self._amount) >= rounded(o.in_currency(self.currency))
+        return rounded(self._amount) >= rounded(o.cents(self.currency))
 
     def __lt__(self, o):
-        return rounded(self._amount) < rounded(o.in_currency(self.currency))
+        return rounded(self._amount) < rounded(o.cents(self.currency))
 
     def __le__(self, o):
-        return self._amount <= o.in_currency(self.currency)
+        return self._amount <= o.cents(self.currency)
+
+    def __conform__(self, protocol):
+        """Enables writing to an sqlite database
+
+        https://docs.python.org/3/library/sqlite3.html#how-to-write-adaptable-objects
+
+        Will also need the inverse (string to Money_*) to be registered with
+        register_converter.
+        """
+        if protocol is sqlite3.PrepareProtocol:
+            amount, currency = self.as_tuple()
+            return f"{str(amount)};{currency}"
+        return None
 
 
 class Money(type):
