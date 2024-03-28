@@ -86,27 +86,25 @@ def get_repo_rates(on_date: str) -> Optional[Dict[str, Dict]]:
     if repo_dir is None or not os.path.exists(repo_dir):
         return None
 
-    # Attempt to update the local repository
-    try:
-        subprocess.run(
-            ['git', '-C', repo_dir, 'pull'],
-            check=True,
-            stdout=subprocess.DEVNULL,  # Silence standard output
-            stderr=subprocess.DEVNULL,  # Silence standard error
-        )
-    except subprocess.CalledProcessError:
-        # Handle errors in updating the repo, e.g., network issues, permissions, etc.
-        return None
-
-    # Construct the file path for the rates file
     rates_file_path = os.path.join(repo_dir, 'money', rates_file_name(on_date))
     if not os.path.exists(rates_file_path):
-        return None
+        # Attempt to update the local repository
+        try:
+            subprocess.run(
+                ['git', '-C', repo_dir, 'pull'],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            return None
 
-    # Load and return the rates file
-    with open(rates_file_path, 'r', encoding='utf-8') as file:
-        rates = json.load(file)
-        return rates
+    if os.path.exists(rates_file_path):
+        with open(rates_file_path, 'r', encoding='utf-8') as file:
+            rates = json.load(file)
+            return rates
+
+    return None
 
 
 def get_rates(on_date: str) -> Optional[Dict[Currency, float]]:
@@ -185,7 +183,11 @@ def get_rates(on_date: str) -> Optional[Dict[Currency, float]]:
 
         response = requests.get(url)
         rates = response.json()
-        with open(rates_download_file(on_date), 'w', encoding='utf-8') as fout:
+        cache_file = rates_download_file(on_date)
+        directory = os.path.dirname(cache_file)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        with open(cache_file, 'w', encoding='utf-8') as fout:
             fout.write(json.dumps(rates))
 
     if rates:
