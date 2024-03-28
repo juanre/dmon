@@ -10,7 +10,7 @@ It downloads and saves today's conversion rates from https://www.exchangerate-ap
 
 ```python
 from decimal import Decimal as Dec
-from dmon.money import Money, Currency
+from dmon import Money, Currency
 
 # Compute in eur with today's conversion rates (default)
 Eur = Money(Currency.EUR)
@@ -56,7 +56,7 @@ assert Gbp((amount, currency)) == paid
 
 ## Usage
 
-The metaclass `Money` returns a class that knows its currency and the date for which currency transformations should be done.  When the `on` argument is `None` (default) the date is set to today's.  If it is a date string, like `'2021-10-29'`, it will do the conversions with the date's exchange rate (assuming that it can find the json file with the rates, otherwise it will fail).
+The class factory `Money` returns a class that knows its currency and the date for which currency transformations should be done.  When the `on` argument is `None` (default) the date is set to today's.  If it is a date string, like `'2021-10-29'`, it will do the conversions with the date's exchange rate (assuming that it can find the json file with the rates, otherwise it will fail).
 
 **Important** All computations are done with cents stored as Decimal, but comparisons are are rounded to the second decimal.  So, for example,
 
@@ -76,10 +76,18 @@ native_usd.cents() - paid_usd.cents()  # Decimal('0.007577551503694780122859')
 
 ## Environment variables
 
-The `MONEY_RATES_API_KEY` environment variable contains your API key for [https://your_exchangerate-api.com](the exchange rates provider).
+The `DMON_RATES_REPO` environment variable can point to a directory containing a git repo with the rates in a `money` subdirectory. The rates should be in files called `yyyy-mm-dd-rates.json`, which contain a dictionary like:
 
-`export MONEY_RATES_API_KEY=your_exchangerate-api.com_key`
+```
+    {
+     "conversion_rates":{
+      "USD":1,
+      "AED":3.6725,
+      "AFN":71.3141,
+    ...}
+    }
+```
 
-The exchange rates will only be downloaded once a day, and cached in the directory pointed at by `MONEY_RES`, if defined, or the current directory otherwise.
+The `DMON_RATES_CACHE` environment variable can point to a directory where downloaded files of the above format are cached.
 
-`export MONEY_RES=a/resources/directory`
+If the rates file for a given date is not found in any of the above, the library will attempt to download it from https://exchangerate-api.com. You will need an API key in the `DMON_EXCHANGERATE_API_KEY` environment variable. You may need a paid accont to download historical data (ie, not the current day).
