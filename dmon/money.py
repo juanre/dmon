@@ -1,73 +1,18 @@
 # -*- coding: utf-8 -*-
 
-import os
-import json
-import time
 from typing import Tuple, Union, Optional, ClassVar, Dict, Any, Type
 
-from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
-from dateutil.relativedelta import relativedelta
-from dateutil import parser as date_parser
-import requests
 
 from dmon.currency import Currency, CurrencySymbols, to_currency_enum
+from dmon.rates import get_rates, today
 
 
 Numeric = Union[int, float, Decimal]
 
 
-def resdir() -> str:
-    return os.environ.get('MONEY_RES', '.')
-
-
-def _today() -> str:
-    return datetime.today().strftime('%Y-%m-%d')
-
-
-def get_rates(on_date: str) -> Dict[Currency, float]:
-    fname = os.path.join(resdir(), on_date + '-rates.json')
-    if os.path.exists(fname):
-        with open(fname, encoding='utf-8') as fin:
-            data = json.load(fin)
-    else:
-        api_environment = 'MONEY_RATES_API_KEY'
-        api_key = os.environ.get(api_environment, '')
-        if not api_key:
-            raise RuntimeError(
-                'Need an api key for https://www.exchangerate-api.com '
-                f'in the environment variable {api_environment}'
-            )
-
-        url = f'https://v6.exchangerate-api.com/v6/{api_key}/latest/USD'
-        if on_date != _today():
-            # Requires a paid plan
-            # https://v6.exchangerate-api.com/v6/YOUR-API-KEY/history/USD/YEAR/MONTH/DAY
-            url = f'https://v6.exchangerate-api.com/v6/{api_key}/history/USD/' + on_date.replace(
-                '-', '/'
-            )
-
-        response = requests.get(url)
-        data = response.json()
-        with open(fname, 'w', encoding='utf-8') as fout:
-            fout.write(json.dumps(data))
-
-    currencies = set(item.value.upper() for item in Currency)
-    return {Currency(c.lower()): r for c, r in data['conversion_rates'].items() if c in currencies}
-
-
-def build_rates_cache(from_date: str, to_date: str) -> None:
-    print(f'Downloading rates from {from_date} to {to_date}')
-    dt = date_parser.parse(from_date).date()
-    to_dt = date_parser.parse(to_date).date()
-    while dt <= to_dt:
-        get_rates(str(dt))
-        time.sleep(0.5)
-        dt = dt + relativedelta(days=1)
-
-
 class BaseMoney:
-    default_date: ClassVar[str] = _today()
+    default_date: ClassVar[str] = today()
     default_currency: ClassVar[Currency] = Currency.EUR
     output_currency: Optional[Currency] = None
     rates: Optional[Dict[Currency, float]] = None
@@ -97,14 +42,14 @@ class BaseMoney:
                 If False (default), the amount is treated as the main currency unit (e.g., dollars).
 
         Attributes:
-            _amount (Decimal): The amount of money stored as cents.
+            _cents (Decimal): The amount of money stored as cents.
             currency (Currency): The currency of the money.
             on_date (str): The date for which the money is represented.
         """
         if isinstance(amount, tuple):
             amount, currency = amount
 
-        self._amount: Decimal = (
+        self._cents: Decimal = (
             Decimal(amount) if amount_is_cents else Decimal('100') * Decimal(amount)
         )
         self.currency: Currency = to_currency_enum(currency or self.default_currency)
@@ -116,10 +61,10 @@ class BaseMoney:
 
     @classmethod
     def to_today(cls) -> None:
-        cls.to_date(_today())
+        cls.to_date(today())
 
     def as_tuple(self) -> Tuple[Decimal, str]:
-        return self._amount, self.currency.value
+        return self._cents, self.currency.value
 
     def cents(
         self, currency: Optional[Union[str, Currency]] = None, on_date: Optional[str] = None
@@ -151,12 +96,19 @@ class BaseMoney:
         """
         currency = to_currency_enum(currency or self.currency)
         if currency == self.currency:
-            return self._amount
+            return self._cents
 
-        if self.rates is None:
-            self.rates = get_rates(on_date or self.on_date)
+        if self.__class__.rates is None:
+            self.__class__.rates = get_rates(on_date or self.on_date)
 
-        return self._amount * Decimal(self.rates[currency]) / Decimal(self.rates[self.currency])
+        if self.__class__.rates is None:
+            raise RuntimeError('Could not find rates for {on_date or self.on_date}')
+
+        return (
+            self._cents
+            * Decimal(self.__class__.rates[currency])
+            / Decimal(self.__class__.rates[self.currency])
+        )
 
     def amount(
         self, currency: Optional[Union[str, Currency]] = None, rounding: bool = False
@@ -166,9 +118,8 @@ class BaseMoney:
 
     def to(self, currency: Union[str, Currency]) -> 'BaseMoney':
         currency = to_currency_enum(currency)
-        _amount = self.cents(currency)
         return self.__class__(
-            _amount,
+            self.cents(currency),
             currency,
             on=self.on_date,
             amount_is_cents=True,
@@ -176,7 +127,7 @@ class BaseMoney:
 
     def on(self, on_date: str) -> 'BaseMoney':
         return self.__class__(
-            self._amount,
+            self._cents,
             self.currency,
             on=on_date,
             amount_is_cents=True,
@@ -209,7 +160,7 @@ class BaseMoney:
         return str(self)
 
     def __neg__(self) -> 'BaseMoney':
-        return self.__class__(-self._amount, self.currency, on=self.on_date, amount_is_cents=True)
+        return self.__class__(-self._cents, self.currency, on=self.on_date, amount_is_cents=True)
 
     def __add__(self, o: Union['BaseMoney', Numeric]) -> 'BaseMoney':
         if not isinstance(o, BaseMoney):
@@ -230,16 +181,16 @@ class BaseMoney:
 
     def __mul__(self, n: Numeric) -> 'BaseMoney':
         return self.__class__(
-            self._amount * Decimal(n), self.currency, on=self.on_date, amount_is_cents=True
+            self._cents * Decimal(n), self.currency, on=self.on_date, amount_is_cents=True
         )
 
     __rmul__ = __mul__
 
     def __truediv__(self, n: Union['BaseMoney', Numeric]) -> Union['BaseMoney', Decimal]:
         if isinstance(n, BaseMoney):
-            return self._amount / n.to(self.currency).cents()
+            return self._cents / n.to(self.currency).cents()
         return self.__class__(
-            self._amount / Decimal(n), self.currency, on=self.on_date, amount_is_cents=True
+            self._cents / Decimal(n), self.currency, on=self.on_date, amount_is_cents=True
         )
 
     def __eq__(self, o: object) -> bool:
@@ -278,8 +229,6 @@ class BaseMoney:
         return eq_result or self.__lt__(o)
 
     def __conform__(self, protocol: Any) -> Optional[str]:
-        import sqlite3
-
         """Enables writing to an sqlite database
 
         https://docs.python.org/3/library/sqlite3.html#how-to-write-adaptable-objects
@@ -287,6 +236,8 @@ class BaseMoney:
         Will also need the inverse (string to Money_*) to be registered with
         register_converter.
         """
+        import sqlite3
+
         if protocol is sqlite3.PrepareProtocol:
             amount, currency = self.as_tuple()
             return f"{str(amount)};{currency}"
@@ -302,29 +253,8 @@ def Money(
     """Factory that creates a class for computing with a currency on a date."""
     class_name = name or 'Money_' + (on if on else 'latest')
     class_attrs = {
-        'default_date': on or _today(),
+        'default_date': on or today(),
         'default_currency': currency,
         'output_currency': to_currency_enum(output_currency) if output_currency else None,
     }
     return type(class_name, (BaseMoney,), class_attrs)
-
-
-def add_args(parser):
-    parser.add_argument(
-        '--rates-cache',
-        help=(
-            'Download the conversion rates.  It has the form of a date, '
-            'like 2022-04-34, or two.  If only one download until today, '
-            'otherwise from the first until the second, included.'
-        ),
-        type=str,
-        nargs='+',
-        required=False,
-    )
-
-
-def main(args):
-    if args.rates_cache:
-        from_dt = args.rates_cache[0]
-        to_dt = _today() if len(args.rates_cache) == 1 else args.rates_cache[1]
-        build_rates_cache(from_dt, to_dt)
