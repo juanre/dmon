@@ -83,9 +83,26 @@ class BaseMoney:
         on: Optional[str] = None,
         amount_is_cents: bool = False,
     ) -> None:
+        """
+        Initializes a new instance of the BaseMoney class, intended to be used by derived clases.
+
+        Args:
+            amount (Union[Numeric, Tuple[Numeric, Currency]]): The amount of money.
+                It can be a single numeric value or a tuple containing the amount and currency.
+            currency (Optional[Union[str, Currency]]): The currency of the money.
+                If not provided, the default currency of the class is used.
+            on (Optional[str]): The date for which the money is represented.
+                If not provided, the default date of the class is used.
+            amount_is_cents (bool): A flag indicating whether the provided amount is in cents.
+                If False (default), the amount is treated as the main currency unit (e.g., dollars).
+
+        Attributes:
+            _amount (Decimal): The amount of money stored as cents.
+            currency (Currency): The currency of the money.
+            on_date (str): The date for which the money is represented.
+        """
         if isinstance(amount, tuple):
             amount, currency = amount
-            amount_is_cents = True
 
         self._amount: Decimal = (
             Decimal(amount) if amount_is_cents else Decimal('100') * Decimal(amount)
@@ -107,6 +124,31 @@ class BaseMoney:
     def cents(
         self, currency: Optional[Union[str, Currency]] = None, on_date: Optional[str] = None
     ) -> Decimal:
+        """
+        Converts the money amount to cents in the specified currency on the given date.
+
+        Args:
+            currency (Optional[Union[str, Currency]]): The target currency to convert to.
+                If not provided, the money's original currency is used.
+            on_date (Optional[str]): The date for which the conversion rates should be used.
+                If not provided, the money's original date is used.
+
+        Returns:
+            Decimal: The amount in cents in the specified currency on the given date.
+
+        Raises:
+            RuntimeError: If the conversion rates are not available for the specified date.
+
+        The function first converts the provided currency (if any) to a Currency enum.
+        If the target currency is the same as the money's original currency, the amount
+        in cents is returned directly.
+
+        If the conversion rates are not yet loaded, they are fetched using the `get_rates`
+        function for the specified date or the money's original date.
+
+        The amount is then converted to cents in the target currency by multiplying it
+        with the ratio of the target currency rate to the original currency rate.
+        """
         currency = to_currency_enum(currency or self.currency)
         if currency == self.currency:
             return self._amount

@@ -51,7 +51,7 @@ def test_money_creation():
     assert str(Eur(40).to(Currency.INR)) == '₹3198.76'
 
     cents, cur = Eur(20).as_tuple()
-    assert Aud((cents, cur)) == Eur(20)  # type: ignore
+    assert Aud((cents, cur), amount_is_cents=True) == Eur(20)  # type: ignore
 
 
 def test_money_comparisons():
