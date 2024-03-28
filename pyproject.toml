@@ -1,35 +1,34 @@
-[build-system]
-requires = ["setuptools", "wheel"]
-
-[project]
+[tool.poetry]
 name = "dated-money"
-version = "0.0.6"
-description = "Compute with monetary values in the currencies supported by https://www.exchangerate-api.com."
+version = "0.1.0"
+description = "Compute with dated monetary values."
 readme = "README.md"
-authors = [
-    { name = "Juan Reyero", email="juan@juanreyero.com" }
-]
-requires-python = ">=3.8"
-license = { file="LICENSE" }
-dependencies = [
-    "requests >= 2.26.0",
-    "python-dateutil >= 2.8.2"
-]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+authors = ["Juan Reyero <juan@juanreyero.com>"]
+license = "MIT"
+packages = [
+    { include = "dmon" }
 ]
 
-[project.optional-dependencies]
-dev = [
-    "jedi >= 0.18.1",
-    "pylint >= 2.13.9",
-    "pytest >= 7.0.0",
-    "yapf >= 0.32.0"
-]
+[tool.poetry.urls]
+"Homepage" = "https://github.com/juanre/dmon"
+"Repository" = "https://github.com/juanre/dmon"
 
-[project.scripts]
+[tool.poetry.dependencies]
+python = "^3.8"
+requests = "^2.31.0"
+python-dateutil = "^2.9.0.post0"
+
+[tool.poetry.group.dev.dependencies]
+jedi = "^0.19.1"
+black = "^24.3.0"
+pylint = "^3.1.0"
+pytest = "^8.1.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
 dmon = "dmon:main"
 
 [tool.pytest.ini_options]
@@ -37,6 +36,3 @@ addopts = "--doctest-modules --ignore=setup.py --ignore=build --ignore=doc --ign
 pythonpath = [
   "."
 ]
-
-[project.urls]
-"Homepage" = "https://github.com/juanre/dmon"
