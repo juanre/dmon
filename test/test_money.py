@@ -2,7 +2,8 @@
 
 
 from decimal import Decimal as Dec
-from dmon.money import Money, Currency
+from dmon.money import Money
+from dmon.currency import Currency
 
 
 def test_money():

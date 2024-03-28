@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Classes to manipulate monetary values.
+"""Classes to manipulate dated monetary values.
 """
 
 import os
 import json
 import time
-import sqlite3
+from typing import Dict
 
-import importlib.resources
 from datetime import datetime
 from decimal import Decimal as D
 from enum import Enum
@@ -15,40 +14,22 @@ from dateutil.relativedelta import relativedelta
 from dateutil import parser as date_parser
 import requests
 
-import dmon
+from dmon.currency import Currency, CurrencySymbols
 
 
-Currency = None
-CurrencySymbols = None
-Cents = D('100')
-
-
-def resdir():
+def resdir() -> str:
     return os.environ.get('MONEY_RES', '.')
 
 
-def rounded(v):
+def _rounded(v: float) -> int:
     return int(round(v))
 
 
-def _today():
+def _today() -> str:
     return datetime.today().strftime('%Y-%m-%d')
 
 
-def build_currency_symbols():
-    global Currency
-    global CurrencySymbols
-    symbols_txt = importlib.resources.read_text(dmon, 'symbols.json')
-    # with open(os.path.join(resdir(), 'symbols.json'), encoding='utf-8') as fin:
-    symbols = json.loads(symbols_txt)
-    Currency = Enum('Currency', ((name.upper(), name) for name in symbols.keys()))
-    CurrencySymbols = {c: symbols[c.value] for c in Currency}
-
-
-build_currency_symbols()
-
-
-def get_rates(on_date):
+def get_rates(on_date: str) -> Dict[Currency, float]:
     fname = os.path.join(resdir(), on_date + '-rates.json')
     if os.path.exists(fname):
         with open(fname, encoding='utf-8') as fin:
@@ -79,7 +60,7 @@ def get_rates(on_date):
     return {Currency(c.lower()): r for c, r in data['conversion_rates'].items() if c in currencies}
 
 
-def build_rates_cache(from_date, to_date):
+def build_rates_cache(from_date: str, to_date: str) -> None:
     print(f'Downloading rates from {from_date} to {to_date}')
     dt = date_parser.parse(from_date).date()
     to_dt = date_parser.parse(to_date).date()
@@ -91,6 +72,7 @@ def build_rates_cache(from_date, to_date):
 
 class BaseMoney:
     on_date = _today()
+
     default_currency = Currency.EUR
     output_currency = None
     rates = None
@@ -110,7 +92,7 @@ class BaseMoney:
         if currency is None:
             currency = self.default_currency
 
-        self._amount = D(amount) if amount_is_cents else Cents * D(amount)
+        self._amount = D(amount) if amount_is_cents else D('100') * D(amount)
         self.currency = self.to_currency_enum(currency)
 
     @classmethod
@@ -142,7 +124,7 @@ class BaseMoney:
 
     def amount(self, currency=None, rounding=False):
         val = self.cents(currency)
-        return (D(round(val)) if rounding else val) / Cents
+        return (D(round(val)) if rounding else val) / D('100')
 
     def to(self, currency, rounding=False):
         currency = self.to_currency_enum(currency)
@@ -174,7 +156,7 @@ class BaseMoney:
         return str(self)
 
     def __neg__(self):
-        return self.__class__(-self._amount / Cents, self.currency)
+        return self.__class__(-self._amount / D('100'), self.currency)
 
     def __add__(self, o):
         # This enables expressions like sum(Eur(i) for i in range(10))
@@ -205,24 +187,26 @@ class BaseMoney:
         return self.__class__(self._amount / D(n), self.currency, amount_is_cents=True)
 
     def __ne__(self, o):
-        return rounded(self._amount) != rounded(o.cents(self.currency))
+        return _rounded(self._amount) != _rounded(o.cents(self.currency))
 
     def __eq__(self, o):
-        return rounded(self._amount) == rounded(o.cents(self.currency))
+        return _rounded(self._amount) == _rounded(o.cents(self.currency))
 
     def __gt__(self, o):
-        return rounded(self._amount) > rounded(o.cents(self.currency))
+        return _rounded(self._amount) > _rounded(o.cents(self.currency))
 
     def __ge__(self, o):
-        return rounded(self._amount) >= rounded(o.cents(self.currency))
+        return _rounded(self._amount) >= _rounded(o.cents(self.currency))
 
     def __lt__(self, o):
-        return rounded(self._amount) < rounded(o.cents(self.currency))
+        return _rounded(self._amount) < _rounded(o.cents(self.currency))
 
     def __le__(self, o):
         return self._amount <= o.cents(self.currency)
 
     def __conform__(self, protocol):
+        import sqlite3
+
         """Enables writing to an sqlite database
 
         https://docs.python.org/3/library/sqlite3.html#how-to-write-adaptable-objects
