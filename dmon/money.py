@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-"""Classes to manipulate dated monetary values.
-"""
 
 import os
 import json
@@ -8,8 +6,7 @@ import time
 from typing import Tuple, Union, Optional, ClassVar, Dict, Any, Type
 
 from datetime import datetime
-from decimal import Decimal
-from enum import Enum
+from decimal import Decimal, ROUND_HALF_UP
 from dateutil.relativedelta import relativedelta
 from dateutil import parser as date_parser
 import requests
@@ -22,10 +19,6 @@ Numeric = Union[int, float, Decimal]
 
 def resdir() -> str:
     return os.environ.get('MONEY_RES', '.')
-
-
-def _rounded(v: Numeric) -> Decimal:
-    return Decimal(int(round(v)))
 
 
 def _today() -> str:
@@ -74,47 +67,52 @@ def build_rates_cache(from_date: str, to_date: str) -> None:
 
 
 class BaseMoney:
-    on_date: ClassVar[str] = _today()
+    default_date: ClassVar[str] = _today()
     default_currency: ClassVar[Currency] = Currency.EUR
     output_currency: Optional[Currency] = None
     rates: Optional[Dict[Currency, float]] = None
+
+    # Precision for checking equality, applied to the cents. A 0 is
+    # equivalent to rounding cents.
+    precision: ClassVar[int] = 0
 
     def __init__(
         self,
         amount: Union[Numeric, Tuple[Numeric, Currency]],
         currency: Optional[Union[str, Currency]] = None,
+        on: Optional[str] = None,
         amount_is_cents: bool = False,
     ) -> None:
         if isinstance(amount, tuple):
             amount, currency = amount
             amount_is_cents = True
 
-        if currency is None:
-            currency = self.default_currency
-
         self._amount: Decimal = (
             Decimal(amount) if amount_is_cents else Decimal('100') * Decimal(amount)
         )
-        self.currency: Currency = to_currency_enum(currency)
+        self.currency: Currency = to_currency_enum(currency or self.default_currency)
+        self.on_date: str = on or self.default_date
 
     @classmethod
     def to_date(cls, dt: str) -> None:
-        cls.on_date = dt
+        cls.default_date = dt
 
     @classmethod
     def to_today(cls) -> None:
-        cls.on_date = _today()
+        cls.to_date(_today())
 
     def as_tuple(self) -> Tuple[Decimal, str]:
         return self._amount, self.currency.value
 
-    def cents(self, currency: Optional[Union[str, Currency]] = None) -> Decimal:
+    def cents(
+        self, currency: Optional[Union[str, Currency]] = None, on_date: Optional[str] = None
+    ) -> Decimal:
         currency = to_currency_enum(currency or self.currency)
         if currency == self.currency:
             return self._amount
 
         if self.rates is None:
-            self.rates = get_rates(self.on_date)
+            self.rates = get_rates(on_date or self.on_date)
 
         return self._amount * Decimal(self.rates[currency]) / Decimal(self.rates[self.currency])
 
@@ -124,29 +122,44 @@ class BaseMoney:
         val = self.cents(currency)
         return (Decimal(round(val)) if rounding else val) / Decimal('100')
 
-    def to(self, currency: Union[str, Currency], rounding: bool = False) -> 'BaseMoney':
+    def to(self, currency: Union[str, Currency]) -> 'BaseMoney':
         currency = to_currency_enum(currency)
         _amount = self.cents(currency)
         return self.__class__(
-            Decimal(round(_amount)) if rounding else _amount, currency, amount_is_cents=True
+            _amount,
+            currency,
+            on=self.on_date,
+            amount_is_cents=True,
         )
 
-    def normalized_amounts(self, o: 'BaseMoney') -> Tuple[Decimal, Decimal, Currency]:
-        """Returns the two values with which to operate, and their
-        common currency. If the two currencies are the same we do not
-        need to do any conversions; if they are not, they will both be
-        converted to the default currency.
+    def on(self, on_date: str) -> 'BaseMoney':
+        return self.__class__(
+            self._amount,
+            self.currency,
+            on=on_date,
+            amount_is_cents=True,
+        )
+
+    def normalized_amounts(self, o: 'BaseMoney') -> Tuple[Decimal, Decimal, Currency, str]:
+        """Returns the two values with which to operate, their common
+        currency, and the date on which any conversion has
+        happened. If the two currencies are the same we do not need to
+        do any conversions; if they are not, they will both be
+        converted to the default currency. The conversion date is the
+        most recent one.
         """
+        on_date = max(self.on_date, o.on_date)
         if self.currency == o.currency:
-            return self.cents(), o.cents(), self.currency
+            return (self.cents(), o.cents(), self.currency, on_date)
+
         return (
-            self.cents(self.default_currency),
-            o.cents(self.default_currency),
+            self.cents(self.default_currency, on_date=on_date),
+            o.cents(self.default_currency, on_date=on_date),
             self.default_currency,
+            on_date,
         )
 
     def __str__(self) -> str:
-        # output_currency may still be None
         currency = self.output_currency or self.currency
         return '%s%.2f' % (CurrencySymbols[currency], self.amount(currency, rounding=True))
 
@@ -154,56 +167,73 @@ class BaseMoney:
         return str(self)
 
     def __neg__(self) -> 'BaseMoney':
-        return self.__class__(-self._amount / Decimal('100'), self.currency)
+        return self.__class__(-self._amount, self.currency, on=self.on_date, amount_is_cents=True)
 
     def __add__(self, o: Union['BaseMoney', Numeric]) -> 'BaseMoney':
         if not isinstance(o, BaseMoney):
             o = self.__class__(Decimal(o), self.currency)
 
-        v1, v2, out_currency = self.normalized_amounts(o)
-        return self.__class__(v1 + v2, out_currency, amount_is_cents=True)
+        v1, v2, out_currency, on_date = self.normalized_amounts(o)
+        return self.__class__(v1 + v2, out_currency, on=on_date, amount_is_cents=True)
 
     def __radd__(self, o: Union['BaseMoney', Numeric]) -> 'BaseMoney':
         return self + o
 
     def __sub__(self, o: 'BaseMoney') -> 'BaseMoney':
-        v1, v2, out_currency = self.normalized_amounts(o)
-        return self.__class__(v1 - v2, out_currency, amount_is_cents=True)
+        v1, v2, out_currency, on_date = self.normalized_amounts(o)
+        return self.__class__(v1 - v2, out_currency, on=on_date, amount_is_cents=True)
 
     def __rsub__(self, o: 'BaseMoney') -> 'BaseMoney':
         return -self + o
 
     def __mul__(self, n: Numeric) -> 'BaseMoney':
-        return self.__class__(self._amount * Decimal(n), self.currency, amount_is_cents=True)
+        return self.__class__(
+            self._amount * Decimal(n), self.currency, on=self.on_date, amount_is_cents=True
+        )
 
     __rmul__ = __mul__
 
     def __truediv__(self, n: Union['BaseMoney', Numeric]) -> Union['BaseMoney', Decimal]:
         if isinstance(n, BaseMoney):
             return self._amount / n.to(self.currency).cents()
-        return self.__class__(self._amount / Decimal(n), self.currency, amount_is_cents=True)
-
-    def __ne__(self, o: object) -> bool:
-        if not isinstance(o, BaseMoney):
-            return NotImplemented
-        return _rounded(self._amount) != _rounded(o.cents(self.currency))
+        return self.__class__(
+            self._amount / Decimal(n), self.currency, on=self.on_date, amount_is_cents=True
+        )
 
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, BaseMoney):
             return NotImplemented
-        return _rounded(self._amount) == _rounded(o.cents(self.currency))
+        v1, v2, _, _ = self.normalized_amounts(o)
+        precision_decimal = Decimal('1').scaleb(-self.precision)
+        v1_quantized = v1.quantize(precision_decimal, rounding=ROUND_HALF_UP)
+        v2_quantized = v2.quantize(precision_decimal, rounding=ROUND_HALF_UP)
+        return v1_quantized == v2_quantized
+
+    def __ne__(self, o: object) -> bool:
+        eq_result = self.__eq__(o)
+        if eq_result is NotImplemented:
+            return NotImplemented
+        return not eq_result
 
     def __gt__(self, o: 'BaseMoney') -> bool:
-        return _rounded(self._amount) > _rounded(o.cents(self.currency))
+        v1, v2, _, _ = self.normalized_amounts(o)
+        return v1 > v2
 
     def __ge__(self, o: 'BaseMoney') -> bool:
-        return _rounded(self._amount) >= _rounded(o.cents(self.currency))
+        eq_result = self.__eq__(o)
+        if eq_result is NotImplemented:
+            return NotImplemented
+        return eq_result or self.__gt__(o)
 
     def __lt__(self, o: 'BaseMoney') -> bool:
-        return _rounded(self._amount) < _rounded(o.cents(self.currency))
+        v1, v2, _, _ = self.normalized_amounts(o)
+        return v1 < v2
 
     def __le__(self, o: 'BaseMoney') -> bool:
-        return self._amount <= o.cents(self.currency)
+        eq_result = self.__eq__(o)
+        if eq_result is NotImplemented:
+            return NotImplemented
+        return eq_result or self.__lt__(o)
 
     def __conform__(self, protocol: Any) -> Optional[str]:
         import sqlite3
@@ -222,7 +252,7 @@ class BaseMoney:
 
 
 def Money(
-    currency: Union[str, Currency] = Currency.EUR,
+    currency: Union[str, Currency],
     output_currency: Optional[Union[str, Currency]] = None,
     on: Optional[str] = None,
     name: Optional[str] = '',
@@ -230,7 +260,7 @@ def Money(
     """Factory that creates a class for computing with a currency on a date."""
     class_name = name or 'Money_' + (on if on else 'latest')
     class_attrs = {
-        'on_date': on or _today(),
+        'default_date': on or _today(),
         'default_currency': currency,
         'output_currency': to_currency_enum(output_currency) if output_currency else None,
     }
