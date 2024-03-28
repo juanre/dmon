@@ -14,9 +14,9 @@ def test_money():
     Aud = Money(Currency.AUD, on=on_date)
 
     assert Eur(23).cents('eur') == 2300
+    assert Eur(23).cents('EUR') == 2300
+    assert Eur(23).cents() == 2300
     assert Eur(40).cents('usd') == Dec('4020.100502512562832012897042')
-
-    assert Eur(40).to_currency_enum('usd') == Currency.USD
 
     assert Eur(20.1, '$') == Eur(20, '€')
 
@@ -37,6 +37,7 @@ def test_money():
     old_date = '2022-01-07'
     OldEur = Money('€', on=old_date)
     assert OldEur(20).to('$') != Eur(20).to('$')
+    assert OldEur(20).to('$').on_date == OldEur(20).on_date
 
     assert type(Eur(10)).__name__ == 'Money_' + on_date
     assert type(OldEur(10)).__name__ == 'Money_' + old_date

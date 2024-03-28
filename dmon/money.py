@@ -14,7 +14,7 @@ from dateutil.relativedelta import relativedelta
 from dateutil import parser as date_parser
 import requests
 
-from dmon.currency import Currency, CurrencySymbols
+from dmon.currency import Currency, CurrencySymbols, to_currency_enum
 
 
 Numeric = Union[int, float, Decimal]
@@ -78,13 +78,6 @@ class BaseMoney:
     default_currency: ClassVar[Currency] = Currency.EUR
     output_currency: Optional[Currency] = None
     rates: Optional[Dict[Currency, float]] = None
-    reverse_symbols: ClassVar[Dict[str, Currency]] = {v: k for k, v in CurrencySymbols.items()}
-
-    # These can be used in several currencies, choose one:
-    reverse_symbols['C$'] = Currency.CAD
-    reverse_symbols['A$'] = Currency.AUD
-    reverse_symbols['$'] = Currency.USD
-    reverse_symbols['£'] = Currency.GBP
 
     def __init__(
         self,
@@ -102,7 +95,7 @@ class BaseMoney:
         self._amount: Decimal = (
             Decimal(amount) if amount_is_cents else Decimal('100') * Decimal(amount)
         )
-        self.currency: Currency = self.to_currency_enum(currency)
+        self.currency: Currency = to_currency_enum(currency)
 
     @classmethod
     def to_date(cls, dt: str) -> None:
@@ -112,27 +105,18 @@ class BaseMoney:
     def to_today(cls) -> None:
         cls.on_date = _today()
 
-    def to_currency_enum(self, currency: Union[str, Currency]) -> Currency:
-        if isinstance(currency, Currency):
-            return currency
-        return Currency(self.reverse_symbols.get(currency, currency))
-
     def as_tuple(self) -> Tuple[Decimal, str]:
         return self._amount, self.currency.value
 
     def cents(self, currency: Optional[Union[str, Currency]] = None) -> Decimal:
-        currency = self.to_currency_enum(currency or self.currency)
+        currency = to_currency_enum(currency or self.currency)
         if currency == self.currency:
             return self._amount
 
         if self.rates is None:
             self.rates = get_rates(self.on_date)
 
-        return (
-            self._amount
-            * Decimal(self.rates[self.to_currency_enum(currency)])
-            / Decimal(self.rates[self.currency])
-        )
+        return self._amount * Decimal(self.rates[currency]) / Decimal(self.rates[self.currency])
 
     def amount(
         self, currency: Optional[Union[str, Currency]] = None, rounding: bool = False
@@ -141,7 +125,7 @@ class BaseMoney:
         return (Decimal(round(val)) if rounding else val) / Decimal('100')
 
     def to(self, currency: Union[str, Currency], rounding: bool = False) -> 'BaseMoney':
-        currency = self.to_currency_enum(currency)
+        currency = to_currency_enum(currency)
         _amount = self.cents(currency)
         return self.__class__(
             Decimal(round(_amount)) if rounding else _amount, currency, amount_is_cents=True
@@ -163,7 +147,7 @@ class BaseMoney:
 
     def __str__(self) -> str:
         # output_currency may still be None
-        currency = self.to_currency_enum(self.output_currency or self.currency)
+        currency = self.output_currency or self.currency
         return '%s%.2f' % (CurrencySymbols[currency], self.amount(currency, rounding=True))
 
     def __repr__(self) -> str:
@@ -199,10 +183,14 @@ class BaseMoney:
             return self._amount / n.to(self.currency).cents()
         return self.__class__(self._amount / Decimal(n), self.currency, amount_is_cents=True)
 
-    def __ne__(self, o: 'BaseMoney') -> bool:
+    def __ne__(self, o: object) -> bool:
+        if not isinstance(o, BaseMoney):
+            return NotImplemented
         return _rounded(self._amount) != _rounded(o.cents(self.currency))
 
-    def __eq__(self, o: 'BaseMoney') -> bool:
+    def __eq__(self, o: object) -> bool:
+        if not isinstance(o, BaseMoney):
+            return NotImplemented
         return _rounded(self._amount) == _rounded(o.cents(self.currency))
 
     def __gt__(self, o: 'BaseMoney') -> bool:
@@ -244,7 +232,7 @@ def Money(
     class_attrs = {
         'on_date': on or _today(),
         'default_currency': currency,
-        'output_currency': output_currency,
+        'output_currency': to_currency_enum(output_currency) if output_currency else None,
     }
     return type(class_name, (BaseMoney,), class_attrs)
 

@@ -1,4 +1,6 @@
+from typing import Union
 from enum import Enum
+
 
 class Currency(Enum):
     AED = 'aed'
@@ -153,6 +155,7 @@ class Currency(Enum):
     ZAR = 'zar'
     ZWD = 'zwd'
 
+
 CurrencySymbols = {
     Currency.AED: 'د.إ',
     Currency.AFN: '؋',
@@ -304,4 +307,20 @@ CurrencySymbols = {
     Currency.XPF: '₣',
     Currency.YER: '﷼',
     Currency.ZAR: 'R ',
-    Currency.ZWD: 'Z$'}
+    Currency.ZWD: 'Z$',
+}
+
+
+Reverse_symbols = {v: k for k, v in CurrencySymbols.items()}
+
+# These can be used in several currencies, choose one:
+Reverse_symbols['C$'] = Currency.CAD
+Reverse_symbols['A$'] = Currency.AUD
+Reverse_symbols['$'] = Currency.USD
+Reverse_symbols['£'] = Currency.GBP
+
+
+def to_currency_enum(currency: Union[str, Currency]) -> Currency:
+    if isinstance(currency, Currency):
+        return currency
+    return Currency(Reverse_symbols.get(currency, currency.lower()))
