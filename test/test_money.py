@@ -10,8 +10,8 @@ def test_money():
     Eur = Money(Currency.EUR, on=on_date)
     Aud = Money(Currency.AUD, on=on_date)
 
-    assert Eur(23).in_currency('eur') == 2300
-    assert Eur(40).in_currency('usd') == Dec('4020.100502512562832012897042')
+    assert Eur(23).cents('eur') == 2300
+    assert Eur(40).cents('usd') == Dec('4020.100502512562832012897042')
 
     assert Eur(40).to_currency_enum('usd') == Currency.USD
 
