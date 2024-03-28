@@ -39,10 +39,11 @@ def build_currency_symbols():
     global Currency
     global CurrencySymbols
     symbols_txt = importlib.resources.read_text(dmon, 'symbols.json')
-    #with open(os.path.join(resdir(), 'symbols.json'), encoding='utf-8') as fin:
+    # with open(os.path.join(resdir(), 'symbols.json'), encoding='utf-8') as fin:
     symbols = json.loads(symbols_txt)
     Currency = Enum('Currency', ((name.upper(), name) for name in symbols.keys()))
     CurrencySymbols = {c: symbols[c.value] for c in Currency}
+
 
 build_currency_symbols()
 
@@ -56,15 +57,18 @@ def get_rates(on_date):
         api_environment = 'MONEY_RATES_API_KEY'
         api_key = os.environ.get(api_environment, '')
         if not api_key:
-            raise RuntimeError('Need an api key for https://www.exchangerate-api.com '
-                               f'in the environment variable {api_environment}')
+            raise RuntimeError(
+                'Need an api key for https://www.exchangerate-api.com '
+                f'in the environment variable {api_environment}'
+            )
 
         url = f'https://v6.exchangerate-api.com/v6/{api_key}/latest/USD'
         if on_date != _today():
             # Requires a paid plan
             # https://v6.exchangerate-api.com/v6/YOUR-API-KEY/history/USD/YEAR/MONTH/DAY
-            url = (f'https://v6.exchangerate-api.com/v6/{api_key}/history/USD/' +
-                   on_date.replace('-', '/'))
+            url = f'https://v6.exchangerate-api.com/v6/{api_key}/history/USD/' + on_date.replace(
+                '-', '/'
+            )
 
         response = requests.get(url)
         data = response.json()
@@ -72,8 +76,7 @@ def get_rates(on_date):
             fout.write(json.dumps(data))
 
     currencies = set(item.value.upper() for item in Currency)
-    return {Currency(c.lower()): r for c, r in data['conversion_rates'].items()
-            if c in currencies}
+    return {Currency(c.lower()): r for c, r in data['conversion_rates'].items() if c in currencies}
 
 
 def build_rates_cache(from_date, to_date):
@@ -83,10 +86,10 @@ def build_rates_cache(from_date, to_date):
     while dt <= to_dt:
         get_rates(str(dt))
         time.sleep(0.5)
-        dt = (dt + relativedelta(days=1))
+        dt = dt + relativedelta(days=1)
 
 
-class BaseMoney():
+class BaseMoney:
     on_date = _today()
     default_currency = Currency.EUR
     output_currency = None
@@ -131,8 +134,11 @@ class BaseMoney():
         if self.rates is None:
             self.rates = get_rates(self.on_date)
 
-        return (self._amount * D(self.rates[self.to_currency_enum(currency)]) /
-                D(self.rates[self.currency]))
+        return (
+            self._amount
+            * D(self.rates[self.to_currency_enum(currency)])
+            / D(self.rates[self.currency])
+        )
 
     def amount(self, currency=None, rounding=False):
         val = self.cents(currency)
@@ -141,9 +147,9 @@ class BaseMoney():
     def to(self, currency, rounding=False):
         currency = self.to_currency_enum(currency)
         _amount = self.cents(currency)
-        return self.__class__(round(_amount) if rounding else _amount,
-                              currency,
-                              amount_is_cents=True)
+        return self.__class__(
+            round(_amount) if rounding else _amount, currency, amount_is_cents=True
+        )
 
     def normalized_amounts(self, o):
         """Returns the two values with which to operate, and their
@@ -153,14 +159,15 @@ class BaseMoney():
         """
         if self.currency == o.currency:
             return self.cents(), o.cents(), self.currency
-        return (self.cents(self.default_currency),
-                o.cents(self.default_currency),
-                self.default_currency)
+        return (
+            self.cents(self.default_currency),
+            o.cents(self.default_currency),
+            self.default_currency,
+        )
 
     def __str__(self):
         # output_currency may still be None
         currency = self.to_currency_enum(self.output_currency or self.currency)
-        # pylint: disable=bad-string-format-type
         return '%s%.2f' % (CurrencySymbols[currency], self.amount(currency, rounding=True))
 
     def __repr__(self):
@@ -244,13 +251,17 @@ class Money(type):
 
 
 def add_args(parser):
-    parser.add_argument('--rates-cache',
-                        help=('Download the conversion rates.  It has the form of a date, '
-                              'like 2022-04-34, or two.  If only one download until today, '
-                              'otherwise from the first until the second, included.'),
-                        type=str,
-                        nargs='+',
-                        required=False)
+    parser.add_argument(
+        '--rates-cache',
+        help=(
+            'Download the conversion rates.  It has the form of a date, '
+            'like 2022-04-34, or two.  If only one download until today, '
+            'otherwise from the first until the second, included.'
+        ),
+        type=str,
+        nargs='+',
+        required=False,
+    )
 
 
 def main(args):
