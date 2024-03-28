@@ -35,7 +35,7 @@ assert str(Eur(20, 'aud') + Eur(20, 'gbp')) == '€37.00'
 Eur.to_date('2022-01-07')
 assert str(Eur(20, 'aud') + Eur(20, 'gbp')) == '€36.65'
 
-# If we use two classes with different dates the first one wins
+# If we use two classes with different dates the output will have the later date:
 assert str(Eur(20, 'aud') + Gbp(20, 'gbp')) == '€36.23'
 assert str(Gbp(20) + Eur(20, 'aud')) == '£30.61'
 
@@ -45,9 +45,9 @@ assert str(1.2 * Eur(20)) == '€24.00'
 assert str(1.2 * Eur(20).to(Currency.CAD)) == 'C$31.53'
 
 paid = Gbp(10)
-amount, currency = paid.as_tuple()
-assert (amount, currency) == (Dec('1000'), 'gbp')
-assert Gbp((amount, currency)) == paid
+amount_cents, currency = paid.as_tuple()
+assert (amount_cents, currency) == (Dec('1000'), 'gbp')
+assert Gbp((amount_cents, currency), amount_is_cents=True) == paid
 ```
 
 ## Installation
