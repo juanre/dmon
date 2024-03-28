@@ -6,8 +6,10 @@ from dmon.money import Money
 from dmon.currency import Currency
 
 
+on_date = '2022-07-14'
+
+
 def test_money():
-    on_date = '2022-07-14'
     Eur = Money(Currency.EUR, on=on_date)
     Aud = Money(Currency.AUD, on=on_date)
 
@@ -30,7 +32,7 @@ def test_money():
     assert Eur(40).to(Currency.CAD).to(Currency.EUR) == Eur(40)
 
     cents, cur = Eur(20).as_tuple()
-    assert Aud((cents, cur)) == Eur(20)
+    assert Aud((cents, cur)) == Eur(20)  # type: ignore
 
     old_date = '2022-01-07'
     OldEur = Money('€', on=old_date)
@@ -39,7 +41,7 @@ def test_money():
     assert type(Eur(10)).__name__ == 'Money_' + on_date
     assert type(OldEur(10)).__name__ == 'Money_' + old_date
 
-    PD = Money('£', '$', on=on_date)
+    PD = Money('£', output_currency='$', on=on_date)
     assert str(PD(20)) == '$23.79'
     assert str(PD(20, '£')) == '$23.79'
     assert str(PD(20, 'gbp')) == '$23.79'
@@ -65,3 +67,9 @@ def test_money():
     assert 0.1 * Eur(10) == Eur(1)
     assert Eur(20) / 10 == Eur(2)
     assert Eur(20) / Eur(10) == Dec(2)
+
+
+def _test_string_currency():
+    Eur = Money('EUR', on=on_date)
+    assert Eur(23).cents('eur') == 2300
+    assert Eur(40).cents('usd') == Dec('4020.100502512562832012897042')
