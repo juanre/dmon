@@ -29,7 +29,7 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-dmon = "dmon:main"
+dmon-rates = "dmon.rates:main"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --ignore=setup.py --ignore=build --ignore=doc --ignore=flymake"

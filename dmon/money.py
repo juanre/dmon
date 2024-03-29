@@ -15,7 +15,6 @@ class BaseMoney:
     default_date: ClassVar[str] = today()
     default_currency: ClassVar[Currency] = Currency.EUR
     output_currency: Optional[Currency] = None
-    rates: Optional[Dict[Currency, float]] = None
 
     # Precision for checking equality, applied to the cents. A 0 is
     # equivalent to rounding cents.
@@ -69,46 +68,54 @@ class BaseMoney:
     def cents(
         self, currency: Optional[Union[str, Currency]] = None, on_date: Optional[str] = None
     ) -> Decimal:
-        """
-        Converts the money amount to cents in the specified currency on the given date.
+        """Converts the money amount to cents in the specified
+        currency on the given date.
 
         Args:
-            currency (Optional[Union[str, Currency]]): The target currency to convert to.
-                If not provided, the money's original currency is used.
-            on_date (Optional[str]): The date for which the conversion rates should be used.
-                If not provided, the money's original date is used.
+
+            currency: The target currency to convert to.  If not
+                provided, the money's original currency is used.
+
+            on_date: The date for which the conversion rates should be
+                used.  If not provided, the money's original date is
+                used.
 
         Returns:
-            Decimal: The amount in cents in the specified currency on the given date.
+
+            The amount in cents in the specified currency on the given
+            date.
 
         Raises:
-            RuntimeError: If the conversion rates are not available for the specified date.
 
-        The function first converts the provided currency (if any) to a Currency enum.
-        If the target currency is the same as the money's original currency, the amount
-        in cents is returned directly.
+            RuntimeError: If the conversion rates are not available
+            for the specified date.
 
-        If the conversion rates are not yet loaded, they are fetched using the `get_rates`
-        function for the specified date or the money's original date.
+        The function first converts the provided currency (if any) to
+        a Currency enum.  If the target currency is the same as the
+        money's original currency, the amount in cents is returned
+        directly.
 
-        The amount is then converted to cents in the target currency by multiplying it
-        with the ratio of the target currency rate to the original currency rate.
+        The amount is then converted to cents in the target currency
+        by multiplying it with the ratio of the target currency rate
+        to the original currency rate.
+
         """
         currency = to_currency_enum(currency or self.currency)
         if currency == self.currency:
             return self._cents
 
-        if self.__class__.rates is None:
-            self.__class__.rates = get_rates(on_date or self.on_date)
+        rates = get_rates(on_date or self.on_date, currency, self.currency)
 
-        if self.__class__.rates is None:
+        if rates is None:
             raise RuntimeError('Could not find rates for {on_date or self.on_date}')
 
-        return (
-            self._cents
-            * Decimal(self.__class__.rates[currency])
-            / Decimal(self.__class__.rates[self.currency])
-        )
+        if rates[currency] is None:
+            raise RuntimeError('Could not find conversion rate for ', currency)
+
+        if rates[self.currency] is None:
+            raise RuntimeError('Could not find conversion rate for ', self.currency)
+
+        return self._cents * Decimal(str(rates[currency])) / Decimal(str(rates[self.currency]))
 
     def amount(
         self, currency: Optional[Union[str, Currency]] = None, rounding: bool = False
