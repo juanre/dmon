@@ -74,6 +74,26 @@ assert native_usd.cents() != paid_usd.cents()
 native_usd.cents() - paid_usd.cents()  # Decimal('0.007577551503694780122859')
 ```
 
+### Create the cache database
+
+Set up the `DMON_RATES_CACHE` environment variable:
+
+```
+export DMON_RATES_CACHE=~/.dmon
+```
+
+and then create the database cache table:
+
+```
+dmon-rates --create-table
+```
+
+If you have a paid API key for https://exchangerate-api.com you can set up the `DMON_EXCHANGERATE_API_KEY` environment variable, and create your cache with
+
+```
+dmon-rates --fetch-rates 2021-10-10:2021-10-20
+```
+
 ## Environment variables
 
 The `DMON_RATES_REPO` environment variable can point to a directory containing a git repo with the rates in a `money` subdirectory. The rates should be in files called `yyyy-mm-dd-rates.json`, which contain a dictionary like:
@@ -88,6 +108,6 @@ The `DMON_RATES_REPO` environment variable can point to a directory containing a
     }
 ```
 
-The `DMON_RATES_CACHE` environment variable can point to a directory where downloaded files of the above format are cached.
+The `DMON_RATES_CACHE` environment variable can point to a directory where a cache is maintained (sqlite database).
 
 If the rates file for a given date is not found in any of the above, the library will attempt to download it from https://exchangerate-api.com. You will need an API key in the `DMON_EXCHANGERATE_API_KEY` environment variable. You may need a paid accont to download historical data (ie, not the current day).

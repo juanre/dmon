@@ -312,6 +312,8 @@ def get_rates(on_date: str, *currencies: Currency) -> Optional[Dict[Currency, Op
     with get_db_connection() as conn:
         cursor = conn.cursor()
         placeholders = ', '.join(f'"{currency.value}"' for currency in currencies)
+        if not placeholders:
+            placeholders = '*'
         cursor.execute(f'SELECT {placeholders} FROM rates WHERE date = ?', (on_date,))
         row = cursor.fetchone()
 
@@ -338,25 +340,28 @@ def get_rate(on_date: str, currency: Currency) -> Optional[float]:
 
     return None
 
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(f'SELECT "{currency.value}" FROM rates WHERE date = ?', (on_date,))
-        row = cursor.fetchone()
 
-        if row:
-            return row[0]
-        else:
-            # If the day doesn't have a row in the database, try to get it from the repo
-            rates = get_day_rates_from_repo(on_date)
-            if not rates:
-                # If not there try to get it from exchangerate_api
-                rates = fetch_rates_from_exchangerate_api(on_date)
+def fetch_period_rates(from_date: str, to_date: str) -> None:
+    """Builds a rates cache by querying the rates for each day in a
+    period. If you don't have a repository with the conversion rates
+    json files, it will attempt to download them from
+    exchangerate_api.com.
 
-            if rates:
-                cache_day_rates(on_date, rates)
-                return rates[currency.value.upper()]
+    You will need a paid API key for this.
 
-            return None
+    Args:
+
+        from_date: First date to add to the cache, in yyyy-mm-dd format.
+
+        to_date: Last date to add to the cache, in yyyy-mm-dd format.
+    """
+    print(f'Downloading rates from {from_date} to {to_date}')
+    dt = date_parser.parse(from_date).date()
+    to_dt = date_parser.parse(to_date).date()
+    while dt <= to_dt:
+        get_rates(str(dt))
+        time.sleep(0.5)
+        dt = dt + relativedelta(days=1)
 
 
 def main():
@@ -382,6 +387,10 @@ def main():
     parser.add_argument(
         '-c', '--currency', help='Optional: Currency for which to retrieve the exchange rate'
     )
+    parser.add_argument(
+        '--fetch-rates',
+        help='Retrieve the exchange rates of all the days in a period. Format YYYY-MM-DD:YYYY-MM-DD',
+    )
 
     args = parser.parse_args()
 
@@ -394,6 +403,10 @@ def main():
         print("Updating currency conversion cache database...")
         fill_cache_db()
         print("Cache database updated successfully.")
+
+    if args.fetch_rates:
+        from_dt, to_dt = args.fetch_rates.split(':')
+        fetch_period_rates(from_dt, to_dt)
 
     rate_on_date = args.rate_on
     currency = args.currency
