@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dated-money"
-version = "0.1.0"
+version = "1.0.0"
 description = "Compute with dated monetary values."
 readme = "README.md"
 authors = ["Juan Reyero <juan@juanreyero.com>"]

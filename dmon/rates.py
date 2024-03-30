@@ -6,20 +6,33 @@ import threading
 import time
 import subprocess
 import sqlite3
+import requests
 from decimal import Decimal
 from contextlib import contextmanager
-from typing import Optional, Union, Dict, List, Set, ClassVar
-
-from datetime import datetime, timedelta
+from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
-from dateutil import parser as date_parser
-import requests
+from typing import Optional, Union, Dict, ClassVar
 
 from dmon.currency import Currency
 
 
-import threading
-import sqlite3
+def parse_date(dt: Union[date, str]) -> date:
+    if isinstance(dt, str):
+        return datetime.strptime(dt, '%Y-%m-%d').date()
+    if isinstance(dt, date):
+        return dt
+
+
+def parse_optional_date(dt: Union[str, date, None]) -> Union[date, None]:
+    if dt is None:
+        return None
+    return parse_date(dt)
+
+
+def format_date(dt: Union[date, str]) -> str:
+    # It should fail if a string is not in the yyyy-mm-dd format.
+    as_date = parse_date(dt) if isinstance(dt, str) else dt
+    return as_date.strftime('%Y-%m-%d')
 
 
 class ConnectionPool:
@@ -85,7 +98,7 @@ def maybe_create_cache_table():
         conn.commit()
 
 
-def cache_day_rates(date: str, rates: Dict[str, float]):
+def cache_day_rates(dt: Union[date, str], rates: Dict[str, float]):
     maybe_create_cache_table()
     with get_db_connection() as conn:
         valid_currencies = {currency.value for currency in Currency}
@@ -102,7 +115,7 @@ def cache_day_rates(date: str, rates: Dict[str, float]):
         cursor = conn.cursor()
         cursor.execute(
             f"INSERT OR REPLACE INTO rates (date, {columns}) VALUES (?, {placeholders})",
-            (date, *values),
+            (format_date(dt), *values),
         )
         conn.commit()
 
@@ -119,11 +132,11 @@ def fill_cache_db():
             with open(file_path, 'r') as file:
                 data = json.load(file)
                 rates = data['conversion_rates']
-                date = filename.split('-rates.json')[0]
-                cache_day_rates(date, rates)
+                date_str = filename.split('-rates.json')[0]
+                cache_day_rates(date_str, rates)
 
 
-def get_day_rates_from_repo(on_date: str) -> Optional[Dict[str, float]]:
+def get_day_rates_from_repo(on_date: Union[date, str]) -> Optional[Dict[str, float]]:
     """Fetches exchange rates from a local git repository for a given
     date. It looks for the repository in the environment variable
     DMON_RATES_REPO, and the rates file in
@@ -139,20 +152,18 @@ def get_day_rates_from_repo(on_date: str) -> Optional[Dict[str, float]]:
     ...}
     }
 
-    Args:
+    Arguments:
 
-        on_date: The date for which to fetch the exchange rates, in
-        'YYYY-MM-DD' format.
+    - on_date: The date for which to fetch the exchange rates. If it
+               is a string it should be in 'YYYY-MM-DD' format.
 
-    Returns:
-
-        The exchange rates as a dictionary, or None if the rates
-        cannot be found for the specified date.
+    Returns the exchange rates as a dictionary, or None if the rates
+    cannot be found for the specified date.
 
     Environment variables:
 
-        DMON_RATES_REPO: directory containing a git repository with
-            the rates files in the money subdirectory.
+    - DMON_RATES_REPO: directory containing a git repository with the
+                       rates files in the money subdirectory.
 
     """
     print('Attempting to get rates from repo')
@@ -160,7 +171,7 @@ def get_day_rates_from_repo(on_date: str) -> Optional[Dict[str, float]]:
     if repo_dir is None or not os.path.exists(repo_dir):
         return None
 
-    rates_file_path = os.path.join(repo_dir, 'money', on_date + '-rates.json')
+    rates_file_path = os.path.join(repo_dir, 'money', format_date(on_date) + '-rates.json')
     if not os.path.exists(rates_file_path):
         # Attempt to update the local repository
         try:
@@ -182,33 +193,22 @@ def get_day_rates_from_repo(on_date: str) -> Optional[Dict[str, float]]:
     return None
 
 
-def today() -> str:
-    return datetime.today().strftime('%Y-%m-%d')
-
-
-def fetch_rates_from_exchangerate_api(on_date: str) -> Optional[Dict[str, float]]:
+def fetch_rates_from_exchangerate_api(on_date: Union[date, str]) -> Optional[Dict[str, float]]:
     """Fetches currency exchange rates from exchangerate_api.com.
 
-    Args:
+    Arguments:
 
-        on_date: The date for which to fetch the exchange rates,
-        in 'YYYY-MM-DD' format.
+    - on_date: The date for which to fetch the exchange rates, either
+               as a date or as a string in the 'YYYY-MM-DD' format.
 
-    Returns:
+    Returns a dictionary mapping `Currency` enum members to their
+    exchange rate against a base currency (usually USD) for the
+    specified date. Returns None if the rates cannot be fetched.
 
-        A dictionary mapping `Currency` enum members to their exchange
-        rate against a base currency (usually USD) for the specified
-        date. Returns None if the rates cannot be fetched.
-
-    Raises:
-
-        RuntimeError: If the API key is not found in the environment
-        variable `MONEY_RATES_API_KEY` when attempting to download
-        rates from the external API.
 
     Environment variables:
 
-        DMON_EXCHANGERATE_API_KEY: API key for https://exchangerate-api.com.
+    - DMON_EXCHANGERATE_API_KEY: API key for https://exchangerate-api.com.
 
     The external API used for downloading rates
     (https://exchangerate-api.com) may require a paid plan for
@@ -225,12 +225,12 @@ def fetch_rates_from_exchangerate_api(on_date: str) -> Optional[Dict[str, float]
         )
 
     url = f'https://v6.exchangerate-api.com/v6/{api_key}/latest/USD'
-    if on_date != today():
+    if parse_date(on_date) != date.today():
         # Requires a paid plan
         # https://v6.exchangerate-api.com/v6/YOUR-API-KEY/history/USD/YEAR/MONTH/DAY
-        url = f'https://v6.exchangerate-api.com/v6/{api_key}/history/USD/' + on_date.replace(
-            '-', '/'
-        )
+        url = f'https://v6.exchangerate-api.com/v6/{api_key}/history/USD/' + format_date(
+            on_date
+        ).replace('-', '/')
 
     response = requests.get(url)
 
@@ -244,48 +244,41 @@ def fetch_rates_from_exchangerate_api(on_date: str) -> Optional[Dict[str, float]
         return None
 
 
-def get_rates(on_date: str, *currencies: Currency) -> Optional[Dict[Currency, Optional[Decimal]]]:
+def get_rates(
+    on_date: Union[date, str], *currencies: Currency
+) -> Optional[Dict[Currency, Optional[Decimal]]]:
     """Retrieves the exchange rates for the specified currencies on a
     given date.
 
     This function first attempts to fetch the rates from the local
-    database.  If the rates for the given date are not found in the
+    database. If the rates for the given date are not found in the
     database, it then tries to retrieve them from a repository. If the
     rates are still not found, it makes a call to the exchangerate_api
     to fetch the rates. Once fetched from the repository or the API,
     the rates are cached in the local database for future use.
 
-    Args:
+    Arguments:
 
-        on_date: The date for which to fetch the exchange rates, in
-                 'YYYY-MM-DD' format.
+    - on_date: The date for which to fetch the exchange rates, either
+               as a date or as a string in the 'YYYY-MM-DD' format.
 
-        *currencies: Variable length argument list of Currency enum
-                     members for which to fetch the exchange rates.
+    - [currencies]: Variable length argument list of Currency enum
+                    members for which to fetch the exchange rates.
 
-    Returns:
-
-        A dictionary mapping each requested currency to its exchange
-        rate against the base currency for the specified date. The
-        rate is `None` if it could not be fetched.
-
-    Raises:
-
-        RuntimeError: If the required API key for exchangerate_api.com
-                      is not found in the environment variable
-                      `MONEY_RATES_API_KEY` when attempting to
-                      download rates from the external API.
+    Returns a dictionary mapping each requested currency to its
+    exchange rate against the base currency for the specified
+    date. The rate is `None` if it could not be fetched.
 
     Environment variables:
 
-        DMON_RATES_CACHE: directory where the cache file (sqlite
-            database) is stored.
+    - DMON_RATES_CACHE: directory where the cache file (sqlite
+                        database) is stored.
 
-        DMON_EXCHANGERATE_API_KEY: API key for
-            https://exchangerate-api.com
+    - DMON_EXCHANGERATE_API_KEY: API key for
+                                 https://exchangerate-api.com
 
-        DMON_RATES_REPO: directory containing a git repository with
-            the rates files in a money subdirectory.
+    - DMON_RATES_REPO: directory containing a git repository with the
+                       rates files in a money subdirectory.
 
     The external API used for downloading rates
     (https://exchangerate-api.com) may require a paid plan for
@@ -299,7 +292,7 @@ def get_rates(on_date: str, *currencies: Currency) -> Optional[Dict[Currency, Op
         placeholders = ', '.join(f'"{currency.value}"' for currency in currencies)
         if not placeholders:
             placeholders = '*'
-        cursor.execute(f'SELECT {placeholders} FROM rates WHERE date = ?', (on_date,))
+        cursor.execute(f'SELECT {placeholders} FROM rates WHERE date = ?', (format_date(on_date),))
         row = cursor.fetchone()
 
         out = None
@@ -322,7 +315,7 @@ def get_rates(on_date: str, *currencies: Currency) -> Optional[Dict[Currency, Op
         return None
 
 
-def get_rate(on_date: str, currency: Currency) -> Optional[Decimal]:
+def get_rate(on_date: Union[date, str], currency: Currency) -> Optional[Decimal]:
     rate = get_rates(on_date, currency)
     if rate is not None:
         return rate[currency]
@@ -330,7 +323,7 @@ def get_rate(on_date: str, currency: Currency) -> Optional[Decimal]:
     return None
 
 
-def fetch_period_rates(from_date: str, to_date: str) -> None:
+def fetch_period_rates(from_date: Union[date, str], to_date: Union[date, str]) -> None:
     """Builds a rates cache by querying the rates for each day in a
     period. If you don't have a repository with the conversion rates
     json files, it will attempt to download them from
@@ -338,15 +331,18 @@ def fetch_period_rates(from_date: str, to_date: str) -> None:
 
     You will need a paid API key for this.
 
-    Args:
+    Arguments:
 
-        from_date: First date to add to the cache, in yyyy-mm-dd format.
+    - from_date: First date to add to the cache, as a date object or a
+                 string in yyyy-mm-dd format.
 
-        to_date: Last date to add to the cache, in yyyy-mm-dd format.
+    - to_date: Last date to add to the cache, as a date object or a
+               string in yyyy-mm-dd format.
+
     """
     print(f'Downloading rates from {from_date} to {to_date}')
-    dt = date_parser.parse(from_date).date()
-    to_dt = date_parser.parse(to_date).date()
+    dt = parse_date(from_date)
+    to_dt = parse_date(to_date)
     while dt <= to_dt:
         get_rates(str(dt))
         time.sleep(0.5)
