@@ -1,7 +1,5 @@
 # Dated Money
 
-[MIT(https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 Dated Money is a Python library for manipulating monetary values with control over the date on which currency conversions take place. It represents each monetary value as an amount (stored as a Decimal in cents) and a currency, along with a corresponding date.
 
 It differs from the [money](https://pypi.org/project/money/) package in that it treats the date as a
