@@ -164,7 +164,12 @@ class BaseMoney:
         return '%s%.2f' % (CurrencySymbols[currency], self.amount(currency, rounding=True))
 
     def __repr__(self) -> str:
-        return str(self)
+        currency = self.output_currency or self.currency
+        return '%s %s %s%.2f' % (
+            self.on_date,
+            self.currency.value.upper(),
+            self.amount(currency, rounding=True),
+        )
 
     def __neg__(self) -> 'BaseMoney':
         return self.__class__(-self._cents, self.currency, on=self.on_date, amount_is_cents=True)

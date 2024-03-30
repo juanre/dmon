@@ -26,8 +26,8 @@ def test_money_creation():
 
     assert Eur(23).cents('EUR') == 2300
     assert Eur(23).cents() == 2300
-    assert Eur(40).cents('usd') == Dec('4020.100502512562814070351759')
-    assert Eur(40).cents(Currency.USD) == Dec('4020.100502512562814070351759')
+    assert Eur(40).cents('usd') == Dec('4020.100502512562832012897042')
+    assert Eur(40).cents(Currency.USD) == Dec('4020.100502512562832012897042')
 
     # Values can be created in any currency, independently of the
     # default currency of the class.
@@ -39,11 +39,11 @@ def test_money_creation():
 
     assert Eur(40).amount() == Dec('40')
     assert Eur(40).amount(Currency.USD, rounding=True) == Dec('40.2')
-    assert Eur(40).amount(Currency.USD) == Dec('40.20100502512562814070351759')
+    assert Eur(40).amount(Currency.USD) == Dec('40.20100502512562832012897042')
     assert str(Eur(40).to(Currency.USD)) == '$40.20'
     assert str(Eur(40, '$')) == '$40.00'
 
-    assert Eur(40).to('$').cents() == Dec('4020.100502512562814070351759')
+    assert Eur(40).to('$').cents() == Dec('4020.100502512562832012897042')
     assert Eur(40).to('$').cents() == Eur(40).cents('$')
 
     assert Eur(40).to(Currency.AUD) == Aud(59.4) == Eur(59.4, 'aud')

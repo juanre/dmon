@@ -6,6 +6,7 @@ import threading
 import time
 import subprocess
 import sqlite3
+from decimal import Decimal
 from contextlib import contextmanager
 from typing import Optional, Union, Dict, List, Set, ClassVar
 
@@ -71,26 +72,10 @@ def get_db_connection(database_dir: Optional[str] = None):
         CONNECTION_POOL.release_connection()
 
 
-def create_cache_table(currency_names: Union[List[str], Set[str]]):
-    columns = ', '.join(f'"{currency.lower()}" REAL' for currency in currency_names)
-
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            f'''
-            CREATE TABLE IF NOT EXISTS rates (
-                date TEXT PRIMARY KEY,
-                {columns}
-            )
-        '''
-        )
-        conn.commit()
-
-
 def maybe_create_cache_table():
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        columns = ', '.join(f'"{currency.value}" REAL' for currency in Currency)
+        columns = ', '.join(f'"{currency.value}" TEXT' for currency in Currency)
         cursor.execute(
             f'''CREATE TABLE IF NOT EXISTS rates (
                        date TEXT PRIMARY KEY, {columns}
@@ -105,7 +90,7 @@ def cache_day_rates(date: str, rates: Dict[str, float]):
     with get_db_connection() as conn:
         valid_currencies = {currency.value for currency in Currency}
         filtered_rates = {
-            currency: rate
+            currency: str(rate)
             for currency, rate in rates.items()
             if currency.lower() in valid_currencies
         }
@@ -259,7 +244,7 @@ def fetch_rates_from_exchangerate_api(on_date: str) -> Optional[Dict[str, float]
         return None
 
 
-def get_rates(on_date: str, *currencies: Currency) -> Optional[Dict[Currency, Optional[float]]]:
+def get_rates(on_date: str, *currencies: Currency) -> Optional[Dict[Currency, Optional[Decimal]]]:
     """Retrieves the exchange rates for the specified currencies on a
     given date.
 
@@ -317,8 +302,9 @@ def get_rates(on_date: str, *currencies: Currency) -> Optional[Dict[Currency, Op
         cursor.execute(f'SELECT {placeholders} FROM rates WHERE date = ?', (on_date,))
         row = cursor.fetchone()
 
+        out = None
         if row:
-            return {currency: row[i] for i, currency in enumerate(currencies)}
+            out = {currency: row[i] for i, currency in enumerate(currencies)}
         else:
             # If the day doesn't have a row in the database, try to get it from the repo
             rates = get_day_rates_from_repo(on_date)
@@ -328,12 +314,15 @@ def get_rates(on_date: str, *currencies: Currency) -> Optional[Dict[Currency, Op
 
             if rates:
                 cache_day_rates(on_date, rates)
-                return {currency: rates.get(currency.value.upper()) for currency in currencies}
+                out = {currency: rates.get(currency.value.upper()) for currency in currencies}
 
-            return None
+        if out:
+            return {c: Decimal(v) if v is not None else None for c, v in out.items()}
+
+        return None
 
 
-def get_rate(on_date: str, currency: Currency) -> Optional[float]:
+def get_rate(on_date: str, currency: Currency) -> Optional[Decimal]:
     rate = get_rates(on_date, currency)
     if rate is not None:
         return rate[currency]
@@ -416,7 +405,7 @@ def main():
             currency = Currency(currency.lower())
             rate = get_rate(rate_on_date, currency)
             if rate is not None:
-                print(f'Exchange rate for {currency} on {rate_on_date}: {rate}')
+                print(f'Exchange rate for {currency} on {rate_on_date}: {repr(rate)}')
             else:
                 print(f'Exchange rate not found for {currency} on {rate_on_date}')
         else:
@@ -428,7 +417,7 @@ def main():
                     rates = {Currency(k.lower()): v for k, v in zip(row.keys()[1:], row[1:])}
                     print(f'Exchange rates on {rate_on_date}:')
                     for currency, rate in rates.items():
-                        print(f'{currency}: {rate}')
+                        print(f'{currency}: {repr(rate)}')
                 else:
                     print(f'Exchange rates not found for {rate_on_date}')
 
