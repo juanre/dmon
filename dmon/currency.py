@@ -17,13 +17,16 @@ class Currency(Enum):
     BBD = 'bbd'
     BDT = 'bdt'
     BGN = 'bgn'
+    BHD = 'bhd'
     BIF = 'bif'
     BMD = 'bmd'
     BND = 'bnd'
     BOB = 'bob'
     BRL = 'brl'
     BSD = 'bsd'
+    BTN = 'btn'
     BWP = 'bwp'
+    BYN = 'byn'
     BZD = 'bzd'
     CAD = 'cad'
     CDF = 'cdf'
@@ -40,6 +43,7 @@ class Currency(Enum):
     DOP = 'dop'
     DZD = 'dzd'
     EGP = 'egp'
+    ERN = 'ern'
     ETB = 'etb'
     EUR = 'eur'
     FJD = 'fjd'
@@ -47,6 +51,7 @@ class Currency(Enum):
     GBP = 'gbp'
     GEL = 'gel'
     GGP = 'ggp'
+    GHS = 'ghs'
     GIP = 'gip'
     GNF = 'gnf'
     GTQ = 'gtq'
@@ -61,16 +66,20 @@ class Currency(Enum):
     ILS = 'ils'
     IMP = 'imp'
     INR = 'inr'
+    IQD = 'iqd'
     IRR = 'irr'
     ISK = 'isk'
     JEP = 'jep'
     JMD = 'jmd'
+    JOD = 'jod'
     JPY = 'jpy'
     KES = 'kes'
     KGS = 'kgs'
     KHR = 'khr'
     KMF = 'kmf'
+    KPW = 'kpw'
     KRW = 'krw'
+    KWD = 'kwd'
     KYD = 'kyd'
     KZT = 'kzt'
     LAK = 'lak'
@@ -78,12 +87,14 @@ class Currency(Enum):
     LKR = 'lkr'
     LRD = 'lrd'
     LSL = 'lsl'
+    LYD = 'lyd'
     MAD = 'mad'
     MDL = 'mdl'
     MGA = 'mga'
     MKD = 'mkd'
     MMK = 'mmk'
     MNT = 'mnt'
+    MRU = 'mru'
     MUR = 'mur'
     MXN = 'mxn'
     MYR = 'myr'
@@ -113,16 +124,22 @@ class Currency(Enum):
     SAR = 'sar'
     SBD = 'sbd'
     SCR = 'scr'
+    SDG = 'sdg'
     SEK = 'sek'
     SGD = 'sgd'
     SHP = 'shp'
+    SLE = 'sle'
     SLL = 'sll'
     SOS = 'sos'
     SRD = 'srd'
+    SSP = 'ssp'
+    STD = 'std'
     SYP = 'syp'
     SZL = 'szl'
     THB = 'thb'
     TJS = 'tjs'
+    TMT = 'tmt'
+    TND = 'tnd'
     TOP = 'top'
     TRY = 'try'
     TTD = 'ttd'
@@ -135,6 +152,7 @@ class Currency(Enum):
     UYU = 'uyu'
     UZS = 'uzs'
     VEF = 'vef'
+    VES = 'ves'
     VND = 'vnd'
     VUV = 'vuv'
     WST = 'wst'
@@ -144,6 +162,7 @@ class Currency(Enum):
     XPF = 'xpf'
     YER = 'yer'
     ZAR = 'zar'
+    ZMW = 'zmw'
 
 
 CurrencySymbols = {
@@ -161,13 +180,16 @@ CurrencySymbols = {
     Currency.BBD: 'BBD$',
     Currency.BDT: '৳',
     Currency.BGN: 'лв',
+    Currency.BHD: '.د.ب',
     Currency.BIF: 'FBu',
     Currency.BMD: '$',
     Currency.BND: 'B$',
     Currency.BOB: '$b',
     Currency.BRL: 'R$',
     Currency.BSD: 'B$',
+    Currency.BTN: 'Nu.',
     Currency.BWP: 'P ',
+    Currency.BYN: 'Rbl‎',
     Currency.BZD: 'BZ$',
     Currency.CAD: 'C$',
     Currency.CDF: 'FC ',
@@ -184,6 +206,7 @@ CurrencySymbols = {
     Currency.DOP: 'RD$',
     Currency.DZD: 'دج',
     Currency.EGP: 'E£',
+    Currency.ERN: 'Nkf‎',
     Currency.ETB: 'ብር',
     Currency.EUR: '€',
     Currency.FJD: 'FJ$',
@@ -191,6 +214,7 @@ CurrencySymbols = {
     Currency.GBP: '£',
     Currency.GEL: 'ლ',
     Currency.GGP: 'G£',
+    Currency.GHS: 'GH₵',
     Currency.GIP: '£',
     Currency.GNF: 'GFr',
     Currency.GTQ: 'Q ',
@@ -205,16 +229,20 @@ CurrencySymbols = {
     Currency.ILS: '₪',
     Currency.IMP: '£',
     Currency.INR: '₹',
+    Currency.IQD: 'د.ع',
     Currency.IRR: '﷼',
     Currency.ISK: 'kr ',
     Currency.JEP: '£',
     Currency.JMD: 'J$',
+    Currency.JOD: 'د.أ',
     Currency.JPY: 'JP¥',
     Currency.KES: 'Ksh ',
     Currency.KGS: 'лв',
     Currency.KHR: '៛',
     Currency.KMF: 'CF',
+    Currency.KPW: '₩',
     Currency.KRW: '₩',
+    Currency.KWD: 'د.ك',
     Currency.KYD: 'CI$',
     Currency.KZT: 'лв',
     Currency.LAK: '₭',
@@ -222,12 +250,14 @@ CurrencySymbols = {
     Currency.LKR: '₨',
     Currency.LRD: 'L$',
     Currency.LSL: 'M ',
+    Currency.LYD: 'ل.د',
     Currency.MAD: 'MAD ',
     Currency.MDL: 'L ',
     Currency.MGA: 'Ar ',
     Currency.MKD: 'ден',
     Currency.MMK: 'K',
     Currency.MNT: '₮',
+    Currency.MRU: 'UM‎',
     Currency.MUR: '₨',
     Currency.MXN: 'Mex$',
     Currency.MYR: 'RM ',
@@ -257,16 +287,22 @@ CurrencySymbols = {
     Currency.SAR: '﷼',
     Currency.SBD: 'SI$',
     Currency.SCR: '₨',
+    Currency.SDG: 'PT',
     Currency.SEK: 'kr ',
     Currency.SGD: 'S$',
     Currency.SHP: '£',
+    Currency.SLE: 'Le ',
     Currency.SLL: 'Le ',
     Currency.SOS: 'S ',
     Currency.SRD: 'Sr$',
+    Currency.SSP: 'SS£',
+    Currency.STD: 'Db',
     Currency.SYP: '£S',
     Currency.SZL: 'L',
     Currency.THB: '฿',
     Currency.TJS: 'SM ',
+    Currency.TMT: 'm',
+    Currency.TND: 'د.ت‎',
     Currency.TOP: 'T$',
     Currency.TRY: '₤',
     Currency.TTD: 'TT$',
@@ -279,6 +315,7 @@ CurrencySymbols = {
     Currency.UYU: '$U ',
     Currency.UZS: 'лв',
     Currency.VEF: 'Bs ',
+    Currency.VES: 'Bs. S',
     Currency.VND: '₫',
     Currency.VUV: 'VT ',
     Currency.WST: 'WS$',
@@ -288,19 +325,20 @@ CurrencySymbols = {
     Currency.XPF: '₣',
     Currency.YER: '﷼',
     Currency.ZAR: 'R ',
+    Currency.ZMW: 'ZK',
 }
 
 
-Reverse_symbols = {v: k for k, v in CurrencySymbols.items()}
+ReverseCurrencySymbols = {v: k for k, v in CurrencySymbols.items()}
 
 # These can be used in several currencies, choose one:
-Reverse_symbols['C$'] = Currency.CAD
-Reverse_symbols['A$'] = Currency.AUD
-Reverse_symbols['$'] = Currency.USD
-Reverse_symbols['£'] = Currency.GBP
+ReverseCurrencySymbols['C$'] = Currency.CAD
+ReverseCurrencySymbols['A$'] = Currency.AUD
+ReverseCurrencySymbols['$'] = Currency.USD
+ReverseCurrencySymbols['£'] = Currency.GBP
 
 
 def to_currency_enum(currency: Union[str, Currency]) -> Currency:
     if isinstance(currency, Currency):
         return currency
-    return Currency(Reverse_symbols.get(currency, currency.lower()))
+    return Currency(ReverseCurrencySymbols.get(currency, currency.lower()))
