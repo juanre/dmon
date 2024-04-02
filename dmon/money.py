@@ -11,7 +11,7 @@ from dmon.rates import get_rates, parse_optional_date, format_date
 
 Numeric = Union[int, float, Decimal]
 
-_Cents = 'c'
+_Cents = "c"
 
 
 def cents_str(cents: Union[Numeric, str]) -> str:
@@ -93,13 +93,13 @@ class BaseMoney:
         rates = get_rates(rates_date, currency, self.currency)
 
         if rates is None:
-            raise RuntimeError('Could not find rates for {rates_date}')
+            raise RuntimeError("Could not find rates for {rates_date}")
 
         if rates[currency] is None:
-            raise RuntimeError('Could not find conversion rate for ', currency)
+            raise RuntimeError("Could not find conversion rate for ", currency)
 
         if rates[self.currency] is None:
-            raise RuntimeError('Could not find conversion rate for ', self.currency)
+            raise RuntimeError("Could not find conversion rate for ", self.currency)
 
         return self._cents * Decimal(str(rates[currency])) / Decimal(str(rates[self.currency]))
 
@@ -107,49 +107,49 @@ class BaseMoney:
         self, currency: Optional[Union[str, Currency]] = None, rounding: bool = False
     ) -> Decimal:
         cents = self.cents(currency)
-        return (Decimal(round(cents)) if rounding else cents) / Decimal('100')
+        return (Decimal(round(cents)) if rounding else cents) / Decimal("100")
 
-    def to(self, currency: Union[str, Currency]) -> 'BaseMoney':
+    def to(self, currency: Union[str, Currency]) -> "BaseMoney":
         return self.__class__(cents_str(self.cents(currency)), currency, on_date=self.on_date)
 
-    def on(self, on_date: str) -> 'BaseMoney':
+    def on(self, on_date: str) -> "BaseMoney":
         return self.__class__(cents_str(self._cents), self.currency, on_date=on_date)
 
-    def normalized_amounts(self, o: 'BaseMoney') -> Tuple[Decimal, Decimal]:
+    def normalized_amounts(self, o: "BaseMoney") -> Tuple[Decimal, Decimal]:
         """Returns the two amounts in the base currency."""
         return (self.cents(self.base_currency), o.cents(self.base_currency))
 
-    def __neg__(self) -> 'BaseMoney':
+    def __neg__(self) -> "BaseMoney":
         return self.__class__(cents_str(-self._cents), self.currency, on_date=self.on_date)
 
-    def __add__(self, o: Union['BaseMoney', Numeric, str]) -> 'BaseMoney':
+    def __add__(self, o: Union["BaseMoney", Numeric, str]) -> "BaseMoney":
         if not isinstance(o, BaseMoney):
             o = self.__class__(o, self.currency)
 
         v1, v2 = self.normalized_amounts(o)
         return self.__class__(cents_str(v1 + v2), self.base_currency, on_date=self.base_date)
 
-    def __radd__(self, o: Union['BaseMoney', Numeric, str]) -> 'BaseMoney':
+    def __radd__(self, o: Union["BaseMoney", Numeric, str]) -> "BaseMoney":
         return self + o
 
-    def __sub__(self, o: Union['BaseMoney', Numeric, str]) -> 'BaseMoney':
+    def __sub__(self, o: Union["BaseMoney", Numeric, str]) -> "BaseMoney":
         if not isinstance(o, BaseMoney):
             o = self.__class__(o, self.currency)
 
         v1, v2 = self.normalized_amounts(o)
         return self.__class__(cents_str(v1 - v2), self.base_currency, on_date=self.base_date)
 
-    def __rsub__(self, o: Union['BaseMoney', Numeric, str]) -> 'BaseMoney':
+    def __rsub__(self, o: Union["BaseMoney", Numeric, str]) -> "BaseMoney":
         return -self + o
 
-    def __mul__(self, n: Numeric) -> 'BaseMoney':
+    def __mul__(self, n: Numeric) -> "BaseMoney":
         return self.__class__(
             cents_str(self._cents * Decimal(n)), self.currency, on_date=self.on_date
         )
 
     __rmul__ = __mul__
 
-    def __truediv__(self, o: Union['BaseMoney', Numeric]) -> Union['BaseMoney', Decimal]:
+    def __truediv__(self, o: Union["BaseMoney", Numeric]) -> Union["BaseMoney", Decimal]:
         if isinstance(o, BaseMoney):
             v1, v2 = self.normalized_amounts(o)
             return v1 / v2
@@ -163,7 +163,7 @@ class BaseMoney:
         if not isinstance(o, BaseMoney):
             return NotImplemented
         v1, v2 = self.normalized_amounts(o)
-        precision_decimal = Decimal('1').scaleb(-self.precision)
+        precision_decimal = Decimal("1").scaleb(-self.precision)
         v1_quantized = v1.quantize(precision_decimal, rounding=ROUND_HALF_UP)
         v2_quantized = v2.quantize(precision_decimal, rounding=ROUND_HALF_UP)
         return v1_quantized == v2_quantized
@@ -174,21 +174,21 @@ class BaseMoney:
             return NotImplemented
         return not eq_result
 
-    def __gt__(self, o: 'BaseMoney') -> bool:
+    def __gt__(self, o: "BaseMoney") -> bool:
         v1, v2 = self.normalized_amounts(o)
         return v1 > v2
 
-    def __ge__(self, o: 'BaseMoney') -> bool:
+    def __ge__(self, o: "BaseMoney") -> bool:
         eq_result = self.__eq__(o)
         if eq_result is NotImplemented:
             return NotImplemented
         return eq_result or self.__gt__(o)
 
-    def __lt__(self, o: 'BaseMoney') -> bool:
+    def __lt__(self, o: "BaseMoney") -> bool:
         v1, v2 = self.normalized_amounts(o)
         return v1 < v2
 
-    def __le__(self, o: 'BaseMoney') -> bool:
+    def __le__(self, o: "BaseMoney") -> bool:
         eq_result = self.__eq__(o)
         if eq_result is NotImplemented:
             return NotImplemented
@@ -196,12 +196,12 @@ class BaseMoney:
 
     def __str__(self) -> str:
         currency = self.output_currency or self.currency
-        return '%s%.2f' % (CurrencySymbols[currency], self.amount(currency, rounding=True))
+        return "%s%.2f" % (CurrencySymbols[currency], self.amount(currency, rounding=True))
 
     def __repr__(self) -> str:
         currency = self.output_currency or self.currency
-        return '%s%s %.2f' % (
-            (format_date(self.on_date) + ' ') if self.on_date is not None else '',
+        return "%s%s %.2f" % (
+            (format_date(self.on_date) + " ") if self.on_date is not None else "",
             self.currency.value.upper(),
             self.amount(currency, rounding=True),
         )
@@ -221,15 +221,15 @@ class BaseMoney:
         return None
 
     @classmethod
-    def parse(cls, string: str) -> 'BaseMoney':
-        components = string.split(' ')
+    def parse(cls, string: str) -> "BaseMoney":
+        components = string.split(" ")
         if len(components) == 3:
             on_date, currency, amount = components
         elif len(components) == 2:
             currency, amount = components
             on_date = None
         else:
-            raise RuntimeError('Cannot interpret string for parsing')
+            raise RuntimeError("Cannot interpret string for parsing")
 
         return cls(amount, currency, on_date)
 
@@ -238,15 +238,15 @@ def Money(
     base_currency: Union[Currency, str],
     base_date: Optional[Union[date, str]] = None,
     output_currency: Optional[Union[Currency, str]] = None,
-    class_name: Optional[str] = '',
+    class_name: Optional[str] = "",
 ) -> Type[BaseMoney]:
     """Factory that creates a class for computing with a currency on a date."""
-    c_name = class_name or 'Money_' + (
-        format_date(base_date) if base_date is not None else 'current'
+    c_name = class_name or "Money_" + (
+        format_date(base_date) if base_date is not None else "current"
     )
     class_attrs = {
-        'base_date': parse_optional_date(base_date),
-        'base_currency': base_currency,
-        'output_currency': to_currency_enum(output_currency) if output_currency else None,
+        "base_date": parse_optional_date(base_date),
+        "base_currency": base_currency,
+        "output_currency": to_currency_enum(output_currency) if output_currency else None,
     }
     return type(c_name, (BaseMoney,), class_attrs)

@@ -18,7 +18,7 @@ from dmon.currency import Currency
 
 def parse_date(dt: Union[date, str]) -> date:
     if isinstance(dt, str):
-        return datetime.strptime(dt, '%Y-%m-%d').date()
+        return datetime.strptime(dt, "%Y-%m-%d").date()
     if isinstance(dt, date):
         return dt
 
@@ -32,13 +32,13 @@ def parse_optional_date(dt: Union[str, date, None]) -> Union[date, None]:
 def format_date(dt: Union[date, str]) -> str:
     # It should fail if a string is not in the yyyy-mm-dd format.
     as_date = parse_date(dt) if isinstance(dt, str) else dt
-    return as_date.strftime('%Y-%m-%d')
+    return as_date.strftime("%Y-%m-%d")
 
 
 class ConnectionPool:
     _instance = None
     _lock = threading.Lock()
-    _db_file: ClassVar[str] = ''
+    _db_file: ClassVar[str] = ""
     _ref_count: ClassVar[int] = 0
     _connection = None
 
@@ -74,9 +74,9 @@ CONNECTION_POOL = None
 def get_db_connection(database_dir: Optional[str] = None):
     global CONNECTION_POOL
     if CONNECTION_POOL is None:
-        ddir = database_dir or os.environ.get('DMON_RATES_CACHE', '.')
+        ddir = database_dir or os.environ.get("DMON_RATES_CACHE", ".")
         os.makedirs(ddir, exist_ok=True)
-        CONNECTION_POOL = ConnectionPool(os.path.join(ddir, 'exchange-rates.db'))
+        CONNECTION_POOL = ConnectionPool(os.path.join(ddir, "exchange-rates.db"))
 
     connection = CONNECTION_POOL.get_connection()
     try:
@@ -88,12 +88,12 @@ def get_db_connection(database_dir: Optional[str] = None):
 def maybe_create_cache_table():
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        columns = ', '.join(f'"{currency.value}" TEXT' for currency in Currency)
+        columns = ", ".join(f'"{currency.value}" TEXT' for currency in Currency)
         cursor.execute(
-            f'''CREATE TABLE IF NOT EXISTS rates (
+            f"""CREATE TABLE IF NOT EXISTS rates (
                        date TEXT PRIMARY KEY, {columns}
                 )
-            '''
+            """
         )
         conn.commit()
 
@@ -108,8 +108,8 @@ def cache_day_rates(dt: Union[date, str], rates: Dict[str, float]):
             if currency.lower() in valid_currencies
         }
 
-        columns = ', '.join(f'"{currency.lower()}"' for currency in filtered_rates.keys())
-        placeholders = ', '.join('?' * len(filtered_rates))
+        columns = ", ".join(f'"{currency.lower()}"' for currency in filtered_rates.keys())
+        placeholders = ", ".join("?" * len(filtered_rates))
         values = tuple(filtered_rates.values())
 
         cursor = conn.cursor()
@@ -122,17 +122,17 @@ def cache_day_rates(dt: Union[date, str], rates: Dict[str, float]):
 
 def fill_cache_db():
     maybe_create_cache_table()
-    repo_dir = os.environ.get('DMON_RATES_REPO')
+    repo_dir = os.environ.get("DMON_RATES_REPO")
     if repo_dir is None:
         raise ValueError("DMON_RATES_REPO environment variable is not set")
 
-    for filename in os.listdir(os.path.join(repo_dir, 'money')):
-        if filename.endswith('-rates.json'):
-            file_path = os.path.join(repo_dir, 'money', filename)
-            with open(file_path, 'r') as file:
+    for filename in os.listdir(os.path.join(repo_dir, "money")):
+        if filename.endswith("-rates.json"):
+            file_path = os.path.join(repo_dir, "money", filename)
+            with open(file_path, "r") as file:
                 data = json.load(file)
-                rates = data['conversion_rates']
-                date_str = filename.split('-rates.json')[0]
+                rates = data["conversion_rates"]
+                date_str = filename.split("-rates.json")[0]
                 cache_day_rates(date_str, rates)
 
 
@@ -166,18 +166,18 @@ def get_day_rates_from_repo(on_date: Union[date, str]) -> Optional[Dict[str, flo
                        rates files in the money subdirectory.
 
     """
-    print('Attempting to get rates from repo')
-    repo_dir = os.environ.get('DMON_RATES_REPO', None)
+    print("Attempting to get rates from repo")
+    repo_dir = os.environ.get("DMON_RATES_REPO", None)
     if repo_dir is None or not os.path.exists(repo_dir):
         return None
 
-    rates_file_path = os.path.join(repo_dir, 'money', format_date(on_date) + '-rates.json')
+    rates_file_path = os.path.join(repo_dir, "money", format_date(on_date) + "-rates.json")
     if not os.path.exists(rates_file_path):
         # Attempt to update the local repository
         try:
-            print('Pulling exchange rates repo')
+            print("Pulling exchange rates repo")
             subprocess.run(
-                ['git', '-C', repo_dir, 'pull'],
+                ["git", "-C", repo_dir, "pull"],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -186,9 +186,9 @@ def get_day_rates_from_repo(on_date: Union[date, str]) -> Optional[Dict[str, flo
             return None
 
     if os.path.exists(rates_file_path):
-        with open(rates_file_path, 'r', encoding='utf-8') as file:
+        with open(rates_file_path, "r", encoding="utf-8") as file:
             rates = json.load(file)
-            return rates['conversion_rates']
+            return rates["conversion_rates"]
 
     return None
 
@@ -216,28 +216,28 @@ def fetch_rates_from_exchangerate_api(on_date: Union[date, str]) -> Optional[Dic
 
     """
 
-    api_environment = 'DMON_EXCHANGERATE_API_KEY'
-    api_key = os.environ.get(api_environment, '')
+    api_environment = "DMON_EXCHANGERATE_API_KEY"
+    api_key = os.environ.get(api_environment, "")
     if not api_key:
         raise RuntimeError(
-            'Need an api key for https://www.exchangerate-api.com '
-            f'in the environment variable {api_environment}'
+            "Need an api key for https://www.exchangerate-api.com "
+            f"in the environment variable {api_environment}"
         )
 
-    url = f'https://v6.exchangerate-api.com/v6/{api_key}/latest/USD'
+    url = f"https://v6.exchangerate-api.com/v6/{api_key}/latest/USD"
     if parse_date(on_date) != date.today():
         # Requires a paid plan
         # https://v6.exchangerate-api.com/v6/YOUR-API-KEY/history/USD/YEAR/MONTH/DAY
-        url = f'https://v6.exchangerate-api.com/v6/{api_key}/history/USD/' + format_date(
+        url = f"https://v6.exchangerate-api.com/v6/{api_key}/history/USD/" + format_date(
             on_date
-        ).replace('-', '/')
+        ).replace("-", "/")
 
     response = requests.get(url)
 
     if response.status_code == 200:  # Checks if the request was successful
         rates = response.json()
         # Checks if 'conversion_rates' is in the response and returns it, otherwise returns None
-        return rates.get('conversion_rates')
+        return rates.get("conversion_rates")
     else:
         # Log or handle unsuccessful request appropriately
         print(f"Failed to fetch rates for {on_date}: HTTP {response.status_code}")
@@ -289,10 +289,10 @@ def get_rates(
     """
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        placeholders = ', '.join(f'"{currency.value}"' for currency in currencies)
+        placeholders = ", ".join(f'"{currency.value}"' for currency in currencies)
         if not placeholders:
-            placeholders = '*'
-        cursor.execute(f'SELECT {placeholders} FROM rates WHERE date = ?', (format_date(on_date),))
+            placeholders = "*"
+        cursor.execute(f"SELECT {placeholders} FROM rates WHERE date = ?", (format_date(on_date),))
         row = cursor.fetchone()
 
         out = None
@@ -340,7 +340,7 @@ def fetch_period_rates(from_date: Union[date, str], to_date: Union[date, str]) -
                string in yyyy-mm-dd format.
 
     """
-    print(f'Downloading rates from {from_date} to {to_date}')
+    print(f"Downloading rates from {from_date} to {to_date}")
     dt = parse_date(from_date)
     to_dt = parse_date(to_date)
     while dt <= to_dt:
@@ -352,29 +352,29 @@ def fetch_period_rates(from_date: Union[date, str], to_date: Union[date, str]) -
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description='Currency Conversion Cache Management')
+    parser = argparse.ArgumentParser(description="Currency Conversion Cache Management")
     parser.add_argument(
-        '-C',
-        '--update-cache',
-        action='store_true',
-        help='Update the currency rates cache database',
+        "-C",
+        "--update-cache",
+        action="store_true",
+        help="Update the currency rates cache database",
     )
     parser.add_argument(
-        '--create-table',
-        action='store_true',
-        help='Create the currency rates cache table',
+        "--create-table",
+        action="store_true",
+        help="Create the currency rates cache table",
     )
     parser.add_argument(
-        '-r',
-        '--rate-on',
-        help='Retrieve the exchange rate[s] on date (YYYY-MM-DD)',
+        "-r",
+        "--rate-on",
+        help="Retrieve the exchange rate[s] on date (YYYY-MM-DD)",
     )
     parser.add_argument(
-        '-c', '--currency', help='Optional: Currency for which to retrieve the exchange rate'
+        "-c", "--currency", help="Optional: Currency for which to retrieve the exchange rate"
     )
     parser.add_argument(
-        '--fetch-rates',
-        help='Retrieve the exchange rates of all the days in a period. Format YYYY-MM-DD:YYYY-MM-DD',
+        "--fetch-rates",
+        help="Retrieve the exchange rates of all the days in a period. Format YYYY-MM-DD:YYYY-MM-DD",
     )
 
     args = parser.parse_args()
@@ -390,7 +390,7 @@ def main():
         print("Cache database updated successfully.")
 
     if args.fetch_rates:
-        from_dt, to_dt = args.fetch_rates.split(':')
+        from_dt, to_dt = args.fetch_rates.split(":")
         fetch_period_rates(from_dt, to_dt)
 
     rate_on_date = args.rate_on
@@ -401,22 +401,22 @@ def main():
             currency = Currency(currency.lower())
             rate = get_rate(rate_on_date, currency)
             if rate is not None:
-                print(f'Exchange rate for {currency} on {rate_on_date}: {repr(rate)}')
+                print(f"Exchange rate for {currency} on {rate_on_date}: {repr(rate)}")
             else:
-                print(f'Exchange rate not found for {currency} on {rate_on_date}')
+                print(f"Exchange rate not found for {currency} on {rate_on_date}")
         else:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT * FROM rates WHERE date = ?', (rate_on_date,))
+                cursor.execute("SELECT * FROM rates WHERE date = ?", (rate_on_date,))
                 row = cursor.fetchone()
                 if row:
                     rates = {Currency(k.lower()): v for k, v in zip(row.keys()[1:], row[1:])}
-                    print(f'Exchange rates on {rate_on_date}:')
+                    print(f"Exchange rates on {rate_on_date}:")
                     for currency, rate in rates.items():
-                        print(f'{currency}: {repr(rate)}')
+                        print(f"{currency}: {repr(rate)}")
                 else:
-                    print(f'Exchange rates not found for {rate_on_date}')
+                    print(f"Exchange rates not found for {rate_on_date}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
