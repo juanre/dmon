@@ -4,7 +4,7 @@ from enum import Enum
 
 class Currency(Enum):
     AED = 'aed'
-    AFN = "afn"
+    AFN = 'afn'
     ALL = "all"
     AMD = "amd"
     ANG = "ang"

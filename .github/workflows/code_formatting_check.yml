@@ -25,5 +25,3 @@ jobs:
 
       - name: Check code formatting with Black
         run: black --check .
-        # The --check option will cause Black to exit with non-zero status if any files would be reformatted. This step will fail if formatting issues are found.
-
