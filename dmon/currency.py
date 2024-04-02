@@ -3,13 +3,13 @@ from enum import Enum
 
 
 class Currency(Enum):
-    AED = 'aed'
-    AFN = 'afn'
+    AED = "aed"
+    AFN = "afn"
     ALL = "all"
-    AMD = 'amd'
+    AMD = "amd"
     ANG = "ang"
     ARS = "ars"
-    AUD = 'aud'
+    AUD = "aud"
     AOA = "aoa"
     AWG = "awg"
     AZN = "azn"
