@@ -3,7 +3,7 @@ from enum import Enum
 
 
 class Currency(Enum):
-    AED = "aed"
+    AED = 'aed'
     AFN = "afn"
     ALL = "all"
     AMD = "amd"
