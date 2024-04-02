@@ -14,7 +14,7 @@ packages = [
 "Repository" = "https://github.com/juanre/dmon"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.8"  # pytest requirement
 requests = "^2.31.0"
 python-dateutil = "^2.9.0.post0"
 
@@ -38,4 +38,4 @@ pythonpath = [
 
 [tool.black]
 line-length = 99
-target-version = ["py36", "py37", "py38", "py39", "py310", "py311", "py312"]
+target-version = ["py38", "py39", "py310", "py311", "py312"]
