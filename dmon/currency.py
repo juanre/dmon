@@ -6,7 +6,7 @@ class Currency(Enum):
     AED = 'aed'
     AFN = 'afn'
     ALL = "all"
-    AMD = "amd"
+    AMD = 'amd'
     ANG = "ang"
     ARS = "ars"
     AUD = "aud"
