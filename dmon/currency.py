@@ -9,7 +9,7 @@ class Currency(Enum):
     AMD = 'amd'
     ANG = "ang"
     ARS = "ars"
-    AUD = "aud"
+    AUD = 'aud'
     AOA = "aoa"
     AWG = "awg"
     AZN = "azn"
