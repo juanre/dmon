@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dated-money"
-version = "1.0.1"
+version = "1.0.2"
 description = "Compute with dated monetary values."
 readme = "README.md"
 authors = ["Juan Reyero <juan@juanreyero.com>"]
@@ -19,10 +19,9 @@ requests = "^2.31.0"
 python-dateutil = "^2.9.0.post0"
 
 [tool.poetry.group.dev.dependencies]
-jedi = "^0.19.1"
 black = "^24.3.0"
-pylint = "^3.1.0"
 pytest = "^8.1.1"
+pyright = "^1.1.356"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -36,3 +35,7 @@ addopts = "--doctest-modules --ignore=setup.py --ignore=build --ignore=doc --ign
 pythonpath = [
   "."
 ]
+
+[tool.black]
+line-length = 99
+target-version = ["py36", "py37", "py38", "py39", "py310", "py311", "py312"]
