@@ -1,0 +1,29 @@
+name: Code Formatting Check
+
+# This workflow is triggered on pull requests and pushes to the main branch.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  black-format-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x' # Use the latest available Python 3 version
+
+      - name: Install Black
+        run: pip install black
+
+      - name: Check code formatting with Black
+        run: black --check .
+        # The --check option will cause Black to exit with non-zero status if any files would be reformatted. This step will fail if formatting issues are found.
+
