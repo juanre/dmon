@@ -12,6 +12,10 @@ from contextlib import contextmanager
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from typing import Optional, Union, Dict, ClassVar
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 from dmon.currency import Currency
 
@@ -244,7 +248,122 @@ def fetch_rates_from_exchangerate_api(on_date: Union[date, str]) -> Optional[Dic
         return None
 
 
+def get_supabase_client() -> Optional["Client"]:
+    """Get a Supabase client if credentials are available"""
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")  # This should be the anon key, not service role
+
+    if not url or not key:
+        return None
+
+    from supabase import create_client
+
+    return create_client(url, key)
+
+
+def get_day_rates_from_supabase(on_date: Union[date, str]) -> Optional[Dict[str, float]]:
+    """Fetches exchange rates from Supabase for a given date.
+
+    Arguments:
+    - on_date: The date for which to fetch the exchange rates. If it
+               is a string it should be in 'YYYY-MM-DD' format.
+
+    Returns the exchange rates as a dictionary, or None if the rates
+    cannot be found for the specified date.
+
+    Environment variables:
+    - SUPABASE_URL: Supabase project URL
+    - SUPABASE_KEY: Supabase anon key
+    """
+    client = get_supabase_client()
+    if not client:
+        return None
+
+    try:
+        print("Trying to get rates from supabase")
+        response = client.rpc(
+            "get_rates_for_date", {"target_date": format_date(on_date)}
+        ).execute()
+
+        if response.data:
+            return response.data["conversion_rates"]
+    except Exception as e:
+        print(f"Error fetching rates from Supabase: {e}")
+
+    return None
+
+
 def get_rates(
+    on_date: Union[date, str], *currencies: Currency
+) -> Optional[Dict[Currency, Optional[Decimal]]]:
+    """Retrieves the exchange rates for the specified currencies on a
+    given date.
+
+    This function first attempts to fetch the rates from the local
+    database. If the rates for the given date are not found in the
+    database, it tries these sources in order:
+    1. Local git repository (if DMON_RATES_REPO is set)
+    2. Supabase (if SUPABASE_URL and SUPABASE_KEY are set)
+    3. exchangerate-api (if DMON_EXCHANGERATE_API_KEY is set)
+
+    Once fetched from any source, the rates are cached in the local
+    database for future use.
+
+    Arguments:
+    - on_date: The date for which to fetch the exchange rates, either
+               as a date or as a string in the 'YYYY-MM-DD' format.
+    - [currencies]: Variable length argument list of Currency enum
+                    members for which to fetch the exchange rates.
+
+    Returns a dictionary mapping each requested currency to its
+    exchange rate against the base currency for the specified
+    date. The rate is `None` if it could not be fetched.
+
+    Environment variables:
+    - DMON_RATES_CACHE: directory where the cache file (sqlite
+                        database) is stored.
+    - DMON_RATES_REPO: directory containing a git repository with the
+                       rates files in a money subdirectory.
+    - SUPABASE_URL: Supabase project URL
+    - SUPABASE_KEY: Supabase anon key
+    - DMON_EXCHANGERATE_API_KEY: API key for exchangerate-api.com
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        placeholders = ", ".join(f'"{currency.value}"' for currency in currencies)
+        if not placeholders:
+            placeholders = "*"
+
+        try:
+            cursor.execute(
+                f"SELECT {placeholders} FROM rates WHERE date = ?", (format_date(on_date),)
+            )
+            row = cursor.fetchone()
+        except:
+            row = None
+
+        out = None
+        if row:
+            out = {currency: row[i] for i, currency in enumerate(currencies)}
+        else:
+            # Try sources in order: repo -> supabase -> exchangerate_api
+            rates = get_day_rates_from_repo(on_date)
+            if not rates:
+                rates = get_day_rates_from_supabase(on_date)
+            if not rates:
+                rates = fetch_rates_from_exchangerate_api(on_date)
+
+            if rates:
+                cache_day_rates(on_date, rates)
+                out = {currency: rates.get(currency.value.upper()) for currency in currencies}
+
+        if out:
+            return {c: Decimal(v) if v is not None else None for c, v in out.items()}
+
+        return None
+
+
+def _get_rates(
     on_date: Union[date, str], *currencies: Currency
 ) -> Optional[Dict[Currency, Optional[Decimal]]]:
     """Retrieves the exchange rates for the specified currencies on a

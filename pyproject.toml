@@ -14,10 +14,12 @@ packages = [
 "Repository" = "https://github.com/juanre/dmon"
 
 [tool.poetry.dependencies]
-python = "^3.8"  # pytest requirement
+python = ">=3.9,<4.0"
 requests = "^2.31.0"
 python-dateutil = "^2.9.0.post0"
 
+supabase = "^2.11.0"
+python-dotenv = "^1.0.1"
 [tool.poetry.group.dev.dependencies]
 black = "^24.3.0"
 pytest = "^8.1.1"
