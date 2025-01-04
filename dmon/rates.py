@@ -11,7 +11,7 @@ from decimal import Decimal
 from contextlib import contextmanager
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
-from typing import Optional, Union, Dict, ClassVar
+from typing import Optional, Union, Dict, ClassVar, Tuple
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -293,15 +293,54 @@ def get_day_rates_from_supabase(on_date: Union[date, str]) -> Optional[Dict[str,
     return None
 
 
+def find_rates_for_date(
+    on_date: Union[date, str]
+) -> Tuple[Optional[Dict[str, float]], Optional[date]]:
+    """Attempts to find rates for a given date, falling back to previous dates if needed.
+
+    Arguments:
+    - on_date: The target date to find rates for
+
+    Returns:
+    - Tuple of (rates_dict, actual_date) if found, or (None, None) if no rates found
+    """
+    current_date = parse_date(on_date)
+    max_days_back = 10  # Limit how far back we look to avoid infinite loops
+    days_checked = 0
+
+    while days_checked < max_days_back:
+        # Try getting rates for current date
+        rates = get_day_rates_from_repo(current_date)
+        if rates:
+            return rates, current_date
+
+        rates = get_day_rates_from_supabase(current_date)
+        if rates:
+            return rates, current_date
+
+        # Only try exchangerate API for the actual requested date
+        if days_checked == 0:
+            rates = fetch_rates_from_exchangerate_api(current_date)
+            if rates:
+                return rates, current_date
+
+        # Move to previous day
+        current_date = current_date - relativedelta(days=1)
+        days_checked += 1
+
+    return None, None
+
+
 def get_rates(
     on_date: Union[date, str], *currencies: Currency
 ) -> Optional[Dict[Currency, Optional[Decimal]]]:
     """Retrieves the exchange rates for the specified currencies on a
-    given date.
+    given date. If rates are not available for the specified date,
+    it will attempt to find rates from the most recent previous date
+    (up to 10 days back).
 
     This function first attempts to fetch the rates from the local
-    database. If the rates for the given date are not found in the
-    database, it tries these sources in order:
+    database. If the rates are not found, it tries these sources in order:
     1. Local git repository (if DMON_RATES_REPO is set)
     2. Supabase (if SUPABASE_URL and SUPABASE_KEY are set)
     3. exchangerate-api (if DMON_EXCHANGERATE_API_KEY is set)
@@ -320,10 +359,8 @@ def get_rates(
     date. The rate is `None` if it could not be fetched.
 
     Environment variables:
-    - DMON_RATES_CACHE: directory where the cache file (sqlite
-                        database) is stored.
-    - DMON_RATES_REPO: directory containing a git repository with the
-                       rates files in a money subdirectory.
+    - DMON_RATES_CACHE: directory where the cache file (sqlite database) is stored.
+    - DMON_RATES_REPO: directory containing a git repository with the rates files.
     - SUPABASE_URL: Supabase project URL
     - SUPABASE_KEY: Supabase anon key
     - DMON_EXCHANGERATE_API_KEY: API key for exchangerate-api.com
@@ -346,86 +383,17 @@ def get_rates(
         if row:
             out = {currency: row[i] for i, currency in enumerate(currencies)}
         else:
-            # Try sources in order: repo -> supabase -> exchangerate_api
-            rates = get_day_rates_from_repo(on_date)
-            if not rates:
-                rates = get_day_rates_from_supabase(on_date)
-            if not rates:
-                rates = fetch_rates_from_exchangerate_api(on_date)
+            # If not in cache, try to find rates from the requested date or earlier
+            rates, found_date = find_rates_for_date(on_date)
 
             if rates:
-                cache_day_rates(on_date, rates)
-                out = {currency: rates.get(currency.value.upper()) for currency in currencies}
 
-        if out:
-            return {c: Decimal(v) if v is not None else None for c, v in out.items()}
+                if found_date:
+                    cache_day_rates(found_date, rates)
 
-        return None
+                if found_date != parse_date(on_date):
+                    print(f"Using rates from {found_date} for {on_date}")
 
-
-def _get_rates(
-    on_date: Union[date, str], *currencies: Currency
-) -> Optional[Dict[Currency, Optional[Decimal]]]:
-    """Retrieves the exchange rates for the specified currencies on a
-    given date.
-
-    This function first attempts to fetch the rates from the local
-    database. If the rates for the given date are not found in the
-    database, it then tries to retrieve them from a repository. If the
-    rates are still not found, it makes a call to the exchangerate_api
-    to fetch the rates. Once fetched from the repository or the API,
-    the rates are cached in the local database for future use.
-
-    Arguments:
-
-    - on_date: The date for which to fetch the exchange rates, either
-               as a date or as a string in the 'YYYY-MM-DD' format.
-
-    - [currencies]: Variable length argument list of Currency enum
-                    members for which to fetch the exchange rates.
-
-    Returns a dictionary mapping each requested currency to its
-    exchange rate against the base currency for the specified
-    date. The rate is `None` if it could not be fetched.
-
-    Environment variables:
-
-    - DMON_RATES_CACHE: directory where the cache file (sqlite
-                        database) is stored.
-
-    - DMON_EXCHANGERATE_API_KEY: API key for
-                                 https://exchangerate-api.com
-
-    - DMON_RATES_REPO: directory containing a git repository with the
-                       rates files in a money subdirectory.
-
-    The external API used for downloading rates
-    (https://exchangerate-api.com) may require a paid plan for
-    accessing historical data. The function makes use of environment
-    variables for configuration and may need internet access to
-    retrieve rates from the external API.
-
-    """
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        placeholders = ", ".join(f'"{currency.value}"' for currency in currencies)
-        if not placeholders:
-            placeholders = "*"
-        cursor.execute(f"SELECT {placeholders} FROM rates WHERE date = ?", (format_date(on_date),))
-        row = cursor.fetchone()
-
-        out = None
-        if row:
-            out = {currency: row[i] for i, currency in enumerate(currencies)}
-        else:
-            # If the day doesn't have a row in the database, try to get it from the repo
-            rates = get_day_rates_from_repo(on_date)
-            if not rates:
-                # If not there try to get it from exchangerate_api
-                rates = fetch_rates_from_exchangerate_api(on_date)
-
-            if rates:
-                cache_day_rates(on_date, rates)
                 out = {currency: rates.get(currency.value.upper()) for currency in currencies}
 
         if out:
